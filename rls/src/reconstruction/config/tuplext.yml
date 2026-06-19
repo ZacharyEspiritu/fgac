@@ -1,0 +1,34 @@
+rls_policy: join
+verify: true
+log_oracle_calls: true
+skip_attr_probe: true
+sample_tuples: 100000
+num_queries_per_probe: 1
+tuple_extension_mode: between
+tuple_recompute_threshold: true
+tuple_recompute_cal_rounds: 1
+candidates:
+  ssn:
+    parts:
+      - start: 0
+        end: 999
+        width: 3
+      - start: 0
+        end: 99
+        width: 2
+      - start: 0
+        end: 9999
+        width: 4
+    separator: "-"
+    tuple_in: true
+  age:
+    range:
+      start: 1
+      end: 120
+    tuple_in: true
+  zip_code:
+    range:
+      start: 0
+      end: 99999
+      format: "%05d"
+    tuple_in: true

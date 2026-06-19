@@ -1,0 +1,84 @@
+# Cross-zone (cross-region) Table-1 join config — C-R4 (Table 2).
+#
+# Read by orchestration/util/_load_crosszone_config.sh (via the shared loader + yq) and consumed
+# by the provision/install/run split. This is C-R4's OWN stack (NOT the shared
+# same-zone stack): the DB + noise live in one zone and the attacker in ANOTHER,
+# so the attack traverses the WAN (~49ms RTT). It reuses the C-R3 Table-1 machinery
+# (orchestration/noise/run_oracle_accuracy_with_noise_controller.sh + python -m timing_oracle + python -m noise),
+# but runs only TWO cells — Base (no background load) and cpu50 (50% DB CPU).
+#
+# The cross-region twist is the `attacker:` zone/subnet below: provision/provision_vms.sh
+# creates the attacker VM in attacker.zone on attacker.subnet (a SECOND subnet in
+# the same VPC) while the DB + noise stay in the top-level zone. The DB firewall is
+# tag-based, so the cross-subnet attacker reaches PostgreSQL; `db_allow_cidr` widens
+# pg_hba to cover both subnets. (Omit the per-role attacker zone to fall back to a
+# same-zone run.)
+#
+# Requires `yq` (mikefarah v4 or python-yq) on PATH.
+
+# ---- GCP project / network ----
+project: ""                          # blank => the gcloud CLI's active project
+zone: us-east1-b                     # DB + noise live here
+network: rls-crosszone-net
+subnet: rls-cz-subnet-east
+subnet_range: 10.31.0.0/24
+# pg_hba allow range: a supernet covering BOTH subnets (DB-side + attacker-side), so
+# the cross-region attacker (on 10.31.3.0/24) is permitted by the DB. Same-zone
+# configs omit this and pg_hba falls back to subnet_range.
+db_allow_cidr: 10.31.0.0/16
+boot_disk_type: hyperdisk-balanced   # c4 requires Hyperdisk; "" for the gcloud default
+image_family: debian-12
+image_project: debian-cloud
+postgres_password: mysecretpassword12asdf3
+rls_policy: join
+
+# ---- Machine specs ----
+db:
+  machine_type: c4-standard-16
+  disk_size: 200GB
+attacker:
+  # The cross-region attacker (the whole point of C-R4): a SECOND zone/region/subnet
+  # in the same VPC. provision/provision_vms.sh creates this subnet + the VM here.
+  zone: us-west3-a
+  region: us-west3
+  subnet: rls-cz-subnet-west
+  subnet_range: 10.31.3.0/24
+  machine_type: c4-standard-16
+  disk_size: 200GB
+noise:
+  # zone defaults to the top-level zone => co-located with the DB, so the DB-CPU
+  # controller drives DB load locally. cpu50 needs c4-standard-96 to reach 50%.
+  machine_type: c4-standard-96
+  disk_size: 200GB
+
+# ---- Dataset (loaded into the DB) ----
+dataset:
+  patients: 1000000
+  doctors: 10000
+  sites: 5
+
+# ---- C-R4 experiment params (read by orchestration/util/_load_crosszone_config.sh) ----
+crosszone:
+  # Two cells run in sequence on one provisioned stack:
+  #   baseline:<clients>:<qps>                     -> Base (no background load, controller off)
+  #   cpu50:<clients>:<initial_qps>:<target_cpu%>  -> 50% DB CPU via 96 noise clients (controller on)
+  noise_sweep: "baseline:0:0,cpu50:96:5000:50"
+  probes: 1000
+  k_values: 1,2,4,8
+  calibration_mode: trial
+  seed: 1
+  nonexistent_offset: 1000
+  skip_warmup: 1                     # WAN runs skip the extra cache-warmup scenario
+  # cpu50 cell drives DB CPU with range-query noise + the closed-loop DB-CPU controller:
+  noise_query_mode: range
+  noise_range_width: 100
+  cpu_tolerance_pct: 2
+  cpu_ready_timeout: 1200
+  cpu_sample_seconds: 3
+  cpu_ready_streak: 2
+  cpu_gain: 0.75
+  # Render (Table 2): paired cross-region-vs-same-zone diff. C-R3 publishes the
+  # join-policy same-zone Base + cpu50 cells here after orchestration/run_samezone_exps.sh
+  # runs Table 1.
+  render_scenarios: baseline,cpu50
+  same_zone_baseline_dir: results/table1/samezone-baseline

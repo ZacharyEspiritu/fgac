@@ -1,0 +1,31 @@
+rls_policy: join
+verify: true
+log_oracle_calls: true
+candidates:
+  age:
+    range:
+      start: 1
+      end: 120
+    strategy: binary
+    tuple_in: true
+  zip_code:
+    range:
+      start: 0
+      end: 99999
+      format: "%05d"
+    strategy: binary
+    tuple_in: true
+  ssn:
+    parts:
+      - start: 0
+        end: 999
+        width: 3
+      - start: 0
+        end: 99
+        width: 2
+      - start: 0
+        end: 9999
+        width: 4
+    separator: "-"
+    strategy: binary
+    tuple_in: true

@@ -1,0 +1,59 @@
+# TDE (LUKS) variant of the existence-family config — C-R5.
+#
+# Read by orchestration/util/_load_existence_config.sh (via the shared loader + yq) and consumed
+# by the provision/install/run split. Identical to existence_config.yml except the
+# DB is provisioned with a raw secondary disk; the split then runs
+# orchestration/install/install_artifact_on_database_tde.sh over the transport to
+# LUKS-format that disk and install PostgreSQL onto the encrypted volume.
+#
+# C-R5 confirms TDE does not change the timing channel, so the existence/range
+# attack parameters match existence_config.yml for an apples-to-apples comparison.
+# Requires `yq` (mikefarah v4 or python-yq) on PATH.
+
+# ---- GCP project / network ----
+project: ""                  # blank => use the gcloud CLI's active project
+zone: us-central1-a
+network: rls-net
+subnet: rls-subnet
+subnet_range: 10.10.0.0/24
+
+# ---- Machine specs ----
+db:
+  machine_type: c4-standard-16
+  disk_size: 200GB
+attacker:
+  machine_type: c4-standard-16
+  disk_size: 200GB
+boot_disk_type: hyperdisk-balanced   # c4 requires Hyperdisk; "" for gcloud default
+image_family: debian-12
+image_project: debian-cloud
+postgres_password: mysecretpassword12asdf3
+
+# ---- TDE: provision a bare DB VM + a RAW secondary disk; LUKS-encrypt it and
+#      install PostgreSQL on the encrypted volume over the transport (provider-
+#      agnostic — works on a GCP VM or a bring-your-own SSH host). ----
+postgres_vm: rls-postgres-tde                            # distinct from a concurrent baseline DB
+db_install_script: install_artifact_on_database_tde.sh   # LUKS + PG over the transport (not the plain installer)
+tde:
+  disk_device_name: pg-tde-data   # GCP raw disk device-name -> /dev/disk/by-id/google-pg-tde-data
+  data_disk_size: 200             # integer GB; the raw disk attached at provision time
+  data_disk_type: hyperdisk-balanced
+  # device: /dev/sdb              # bring-your-own (ssh transport): your spare block device to encrypt
+
+# ---- Dataset (loaded into the DB) ----
+dataset:
+  patients: 1000000
+  doctors: 10000
+  sites: 5
+rls_policy: join
+
+# ---- Experiment parameters (match existence_config.yml) ----
+existence:
+  samples: 1000
+  seed: 1
+range:
+  samples: 1000
+  width: 4
+  max_tries: 50000
+  nonexistent_offset: 1000
+  seed: 1

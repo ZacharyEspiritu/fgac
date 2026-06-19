@@ -1,0 +1,25 @@
+rls_policy: join
+verify: true
+log_oracle_calls: true
+candidates:
+  ssn:
+    parts:
+      - start: 0
+        end: 0
+        width: 3
+      - start: 0
+        end: 9
+        width: 2
+      - start: 0
+        end: 9999
+        width: 4
+    separator: "-"
+  age:
+    range:
+      start: 1
+      end: 120
+  zip_code:
+    range:
+      start: 0
+      end: 99999
+      format: "%05d"

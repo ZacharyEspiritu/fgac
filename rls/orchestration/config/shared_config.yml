@@ -1,0 +1,129 @@
+# CANONICAL configuration for the shared-stack camera-ready experiments. This is
+# the single config file every shared-stack claim reads — both the one-shot
+# orchestration/run_samezone_exps.sh (provision the GCP stack ONCE, run every non-TDE
+# claim against it, tear it down) AND each per-claim driver run independently
+# (pass it via --config). There are no longer per-claim config.yml files; the
+# only other config is orchestration/config/tde_config.yml (C-R5, which needs a
+# different VM setup: a LUKS-encrypted data disk).
+#
+# One file drives every step. The generic loader (orchestration/util/_load_gcloud_config.sh) reads
+# the infra; each claim's thin loader reads its own experiment block from here:
+#   - C-R1 / C-R2 (existence / range): orchestration/util/_load_existence_config.sh   -> existence: / range:
+#   - C-R3 (Table 1):                  orchestration/util/_load_table1_config.sh      -> table1:
+#   - C-R6 (single-attr, Table 3):     orchestration/util/_load_singleattr_config.sh  -> singleattr:
+#   - C-R7 (tuple-ext, Table 4):       orchestration/util/_load_tuplext_config.sh     -> tuplext:
+#   - C-R8 (mitigations):              orchestration/util/_load_mitigations_config.sh -> mitigations:
+#   - C-R9 (db size):                  generic loader only (no experiment params)
+# Machine types are sized for the UNION of those claims so one stack serves all:
+#   DB       c4-standard-16
+#   attacker c4-standard-16   (candidate-pool headroom for existence / mitigations / C-R6 ssn binary)
+#   noise    c4-standard-96  (Table 1's background-load generator; used only by C-R3)
+#
+# NOT covered here (provisioned separately): C-R5 (TDE/LUKS DB -> tde_config.yml),
+# C-R4 (cross-region).
+#
+# Requires `yq` (mikefarah v4 or python-yq) on PATH.
+
+# ---- GCP project / network ----
+project: ""                  # blank => use the gcloud CLI's active project
+zone: us-central1-a
+network: rls-net
+subnet: rls-subnet
+subnet_range: 10.10.0.0/24
+
+# ---- Machine specs (union across the shared-stack claims) ----
+db:
+  machine_type: c4-standard-16
+  disk_size: 200GB
+attacker:
+  machine_type: c4-standard-16        # candidate-pool headroom (existence / mitigations)
+  disk_size: 200GB
+noise:
+  machine_type: c4-standard-96       # Table 1 background-load generator
+  disk_size: 200GB
+boot_disk_type: hyperdisk-balanced   # c4 requires Hyperdisk
+image_family: debian-12
+image_project: debian-cloud
+postgres_password: mysecretpassword12asdf3
+
+# ---- Dataset (loaded once; shared by every experiment) ----
+dataset:
+  patients: 1000000
+  doctors: 10000
+  sites: 5
+rls_policy: join
+
+# ---- C-R1 / C-R2 experiment parameters (orchestration/util/_load_existence_config.sh) ----
+existence:                   # equality-probe microbenchmark (Figure 2)
+  samples: 1000
+  seed: 1
+range:                       # range-predicate microbenchmark (Figure 3)
+  samples: 1000
+  width: 4
+  max_tries: 50000
+  nonexistent_offset: 1000
+  seed: 1
+
+# ---- C-R8 mitigation-sweep parameters (orchestration/util/_load_mitigations_config.sh) ----
+mitigations:
+  configs: baseline,plpgsql_composite,subq_inline_single,subq_inline
+  probes: 2000
+  kvalues: 1,2,4,8
+  attribute: ssn
+  run_timeout_s: 14400       # 4h ceiling for the sweep (plpgsql_composite arm is slow)
+
+# ---- C-R3 Table 1 sweep parameters (orchestration/util/_load_table1_config.sh) ----
+table1:
+  probes: 10000 # 100000
+  seed: 1
+  calibration_mode: trial
+  nonexistent_offset: 1000
+  join:
+    policies: join
+    k_values: 1,2,3,4,5,6,7,8,9,10
+    noise_query_mode: range
+    noise_range_width: 100
+    noise_sweep: "baseline:0:0,cpu15:64:45:15,cpu25:64:75:25,cpu35:64:95:35,cpu45:64:120:45,cpu50:64:130:50,cpu55:64:145:55,cpu65:64:170:65,cpu75:64:198:75,cpu85:70:226:85,cpu95:76:252:95"
+  inline:
+    policies: inline
+    k_values: 1,2,4,8
+    noise_query_mode: range
+    noise_range_width: 100
+    noise_sweep: "baseline:0:0,cpu15:64:12500:15,cpu25:64:23700:25,cpu35:64:25000:35,cpu45:64:36200:45,cpu55:64:40400:55,cpu65:64:46000:65,cpu75:96:56000:75,cpu85:96:62000:85,cpu95:96:67000:95"
+
+# ---- C-R6 single-attribute reconstruction parameters (orchestration/util/_load_singleattr_config.sh) ----
+# Table 3: single-attribute binary-search reconstruction (+ a LinearProber baseline).
+# Runs on the shared DB + attacker (no noise VM). One rep per cell:
+#   binary: each column x each worker count W   linear: one W=1 run per column.
+# ssn binary needs the c4-standard-16 attacker (memory); ssn linear is reduced to a
+# 100k sub-domain in the linear reconstruction config and extrapolated x10^4 by
+# single_attribute_table.py. NOTE: the renderer shows age only at W=1 (parallel age
+# is skipped) — trim `workers`/`columns` to cut the (long) sweep if you don't need
+# every cell.
+singleattr:
+  columns: ssn,age,zip         # tokens; driver maps zip -> zip_code for the query
+  workers: 1,2,4,8,16          # binary worker counts (W); `reps` reps per (column, W)
+  reps: 1                      # reps per column (each cell run N times; >1 -> -r<rep>, aggregated by render)
+  probe_rounds: 1              # overrides num_queries_per_probe from the reconstruction config
+  run_linear: true             # also run the LinearProber baseline (one W=1 run/column)
+  binary_reconstruction_config: src/reconstruction/config/singleattr_binary.yml
+  linear_reconstruction_config: src/reconstruction/config/singleattr_linear.yml
+
+# ---- C-R7 tuple-extension reconstruction parameters (orchestration/util/_load_tuplext_config.sh) ----
+# Table 4: full-record reconstruction by tuple extension, swept over attribute
+# ORDERINGS (most-selective-first vs others) x worker counts. Runs on the shared
+# DB + attacker (no noise VM). All attack params are preserved from the original
+# C-R7 (tuplext_recompute_experiment.env): tuple-extension-mode=between, recompute
+# threshold (cal-rounds 1), --skip-attr-probe, sample_tuples=100000.
+# `reps` defaults to 1 (the original ran 3); >1 suffixes -r<rep> and the renderer
+# aggregates (mean±CI). LONG: ssn-leading orderings are slow — trim orderings/workers
+# for a quick run.
+tuplext:
+  orderings: sza,saz,asz,azs,zsa,zas   # subset of the 6 permutations of {ssn,zip,age}
+  workers: 1                           # attacker worker counts (W); only W=1 needed (render knows 1,2,4)
+  reps: 1                              # reps per (ordering, W) cell (original C-R7 = 3)
+  sample_tuples: 100000                # --sample-tuples
+  tuple_extension_mode: between        # --tuple-extension-mode
+  tuple_recompute_cal_rounds: 1        # --tuple-recompute-cal-rounds (recompute threshold on)
+  probe_rounds: 1                      # overrides num_queries_per_probe from the reconstruction config
+  reconstruction_config: src/reconstruction/config/tuplext.yml

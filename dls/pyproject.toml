@@ -1,0 +1,35 @@
+[project]
+name = "dls-artifact"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+  "opensearch-py==3.0.0",
+  "elasticsearch==8.19.3",
+  "datasets==4.4.1",
+  "rich==14.2.0",
+  "mypy==2.1.0",
+  "pytest==8.4.2",
+]
+
+[project.scripts]
+unfilter-dls = "cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["cli"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["enumerator*", "debruijn*", "latex*", "util*", "dataset*"]
+namespaces = true
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+pythonpath = ["src"]
