@@ -7,10 +7,10 @@ This repository is structured as a family of two independent CLI tools called
 `unfilter-*`, each of which provides a command-line utility for running attack
 benchmarks against various classes of databases:
 
-|           Artifact Tool | Paper Scope                            |      Tool      |        Documentation Start         |
-| ----------------------: | :------------------------------------- | :------------: | :--------------------------------: |
-| [`unfilter-rls`](./rls) | **Section 3: Row-Level Security**      | `unfilter-rls` | [`rls/README.md`](./rls/README.md) |
-| [`unfilter-dls`](./dls) | **Section 4: Document-Level Security** | `unfilter-dls` | [`dls/README.md`](./dls/README.md) |
+|        Artifact | Paper Scope                            |      Tool      |        Documentation Start         |
+| --------------: | :------------------------------------- | :------------: | :--------------------------------: |
+| [`rls/`](./rls) | **Section 3: Row-Level Security**      | `unfilter-rls` | [`rls/README.md`](./rls/README.md) |
+| [`dls/`](./dls) | **Section 4: Document-Level Security** | `unfilter-dls` | [`dls/README.md`](./dls/README.md) |
 
 Both artifacts are designed to be extensible and usable for not just future
 research projects, but also for industry practitioners who are interested in
