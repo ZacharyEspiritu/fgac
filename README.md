@@ -7,10 +7,10 @@ This repository is structured as a family of two independent CLI tools called
 `unfilter-*`, each of which provides a command-line utility for running attack
 benchmarks against various classes of databases:
 
-|        Artifact | Paper Scope                            |      Tool      |        Documentation Start         |
-| --------------: | :------------------------------------- | :------------: | :--------------------------------: |
-| [`rls/`](./rls) | **Section 3: Row-Level Security**      | `unfilter-rls` | [`rls/README.md`](./rls/README.md) |
-| [`dls/`](./dls) | **Section 4: Document-Level Security** | `unfilter-dls` | [`dls/README.md`](./dls/README.md) |
+|           Artifact Tool | Paper Scope                            |      Tool      |        Documentation Start         |
+| ----------------------: | :------------------------------------- | :------------: | :--------------------------------: |
+| [`unfilter-rls`](./rls) | **Section 3: Row-Level Security**      | `unfilter-rls` | [`rls/README.md`](./rls/README.md) |
+| [`unfilter-dls`](./dls) | **Section 4: Document-Level Security** | `unfilter-dls` | [`dls/README.md`](./dls/README.md) |
 
 Both artifacts are designed to be extensible and usable for not just future
 research projects, but also for industry practitioners who are interested in
@@ -29,15 +29,24 @@ evaluators, we suggest starting with the
 For convenience, we provide a suggested evaluation flow for those who are
 looking to reproduce our results.
 
-### RLS
+### RLS (`unfilter-rls`)
+
+The `unfilter-rls` utility provides implementations of the attacks and benchmarks 
+for the RLS section of the paper. It also has an built-in Google Compute Engine 
+integration for spawning and orchestrating experiment VMs automatically.
 
 We have tested our RLS setup on fresh Linux (e.g. Debian 13, Ubuntu 24)
-operating systems.
+operating systems. It also works on macOS. 
 
-The easiest way to reproduce the RLS experiments is to have an account
-authenticated to Google Compute Engine. For convenience, we provide credentials
+#### Setup (5 human-minutes)
+
+The easiest way to reproduce the RLS experiments is to use `unfilter-rls`'s
+Google Compute Engine integration, which will use any local `gcloud` CLI
+credentials to automatically deploy and orchestrate experiment VMs for you.
+This requires Google Compute Engine credentials (and billing to
+pay for the VMs). **For convenience, we provide credentials
 for you to access a VM authenticated to our own Google Compute Engine instance
-(see the comment on HotCRP for details). SSH to that instance, then clone the
+(see the comment on HotCRP for details).** SSH to that instance, then clone the
 repo:
 
 ```bash
@@ -55,11 +64,11 @@ bash setup.sh
 find it, open a new terminal or source your shell startup file, such as
 `~/.zshrc`, `~/.bashrc`, or `~/.profile`.
 
-#### Kick-the-Tires
+#### Kick-the-Tires (5 human-minutes + 20 compute-minutes)
 
 To make sure your setup is working and that your account has the ability to
-provision Google Compute Engine VMs, first check that your environment has been
-properly setup:
+provision Google Compute Engine VMs via the Google Compute Engine API, first 
+check that your environment has been properly setup:
 
 ```bash
 unfilter-rls doctor
@@ -72,8 +81,8 @@ fastest experiment):
 unfilter-rls claims run C-R9
 ```
 
-This will take about 20-25 compute-minutes to run (most of this time is spent
-provisioning and tearing down Google Cloud VMs.) You can see some information
+This will take about 20 compute-minutes to run (most of this time is spent
+provisioning and tearing down Google Cloud VMs). You can see some information
 about the experiment run by running
 
 ```bash
@@ -88,12 +97,13 @@ unfilter-rls results inspect [RUN_ID]
 ```
 
 When the run is finished, `unfilter-rls results list` should show the run with
-status `success`, and the experiment should have written a file to
+status `success`. Also, the experiment should have written a file to
 `rls/results/dbsize/summary.txt`. Verify that the numbers align with the
 statistics reported in the "Schema and data" paragraph in Section 3.3 of the
-paper. If this works, you should be ready to run all the experiments.
+paper. If this works, you have validated (**C-R9**) and you should be ready to 
+run all the experiments.
 
-#### Run All Experiments
+#### Run All Experiments (5 human-minutes + 36 compute-hours)
 
 The simplest way to run all of the experiments is in a single command. Some of
 the experiments run for a long time, so we **strongly recommend** using `screen`
@@ -115,20 +125,29 @@ screen -r
 > <kbd>u</kbd> (up) and <kbd>Ctrl</kbd> + <kbd>d</kbd> to scroll; to exit
 > _scroll mode_, press <kbd>Esc</kbd>
 
-You can also run each claim individually by changing the list of arguments
-passed to `unfilter-rls claims run`. (If you are using our Google Cloud
-infrastructure, we ask that you do not run multiple experiments in parallel to
-reduce the number of VMs we need to spawn at once.)
+> **Optional (change experiment options):** You can also run each claim individually by changing the list of arguments
+> passed to `unfilter-rls claims run`. (If you are using our Google Cloud
+> infrastructure, we ask that you do not run multiple experiments in parallel to
+> reduce the number of VMs we need to spawn at once.) There are various configuration
+> options you can use to modify the experiment runs; see `rls/README.md` and the
+> Artifact Appendix for more details.
 
-#### Validate Results
+We suggest launching the command with `screen` and checking again in 36 hours for
+the results.
+You can monitor the experiment run over time using the `screen` guide above or by
+using `unfilter-rls results list`; when the run is finished, 
+`unfilter-rls results list` should show the run with status `success`.
 
-Finally, cross-check the claims as described in the Artifact Appendix. For
+#### Validate Results (15 human-minutes)
+
+When the experiment run is finished, cross-check the claims as described in the Artifact Appendix. 
+
+For
 convenience, the RLS artifact provides a `rls/latex` directory which compiles
 the figures in a LaTeX PDF for easier viewing. Once you're done with running the
 experiments, you can `scp` the generated LaTeX `main.pdf` PDF to your local
 machine to easily view the set of all the figures you generated. See our comment
 on HotCRP for more details.
-
 Using the PDF, you can validate each of the claims as follows:
 
 - (**C-R1** / **E-R1**) Compare Figure 2 in `main.pdf` to Figure 2 in the paper.
@@ -171,12 +190,25 @@ Using the PDF, you can validate each of the claims as follows:
   > `results/existence/existence_tde_figure.tex` and
   > `results/range/existence_range_tde_figure.tex`.
 
-- (**C-R6** / **E-R6**) Compare Table 3 in `main.pdf` to Table 3 in the paper.
+- (**C-R6** / **E-R6**) Compare Table 3 in `main.pdf` to Table 3 in the paper. For the higher
+  parallelism experiments (workers > 4), the additional variance and binary search nature of the
+  attack means that accuracy may be occasionally
+  lower than the averages reported in the paper (e.g.
+  if the attack got unlucky at a higher tree level and
+  mistakenly pruned much of the search space). (This
+  is why we run each row 10 times in the paper.)
 
   > The generated figure in `main.pdf` is imported from
   > `results/table3/table3.tex`.
 
-- (**C-R7** / **E-R7**) Compare Table 4 in `main.pdf` to Table 4 in the paper.
+- (**C-R7** / **E-R7**) Compare Table 4 in `main.pdf` to Table 4 in the paper. For the reconstruction orderings starting with `zip` and `age`, you
+  sometimes will get significantly higher _Recall_ and _Precision_ than what is in the paper due to inherent
+  variance in the binary search and oracle accuracy,
+  but this should come at the cost of significantly
+  higher _Queries_ and _Time_ because the lack of accuracy results in more false positives, resulting in
+  unnecessary trie traversals. (This is why we run
+  each row 3 times in the paper.) The most important factor to check for is that `ssn`-leading orderings should
+  outperform the `zip`- or `age`-leading orderings in either _Recall_ / _Precision_, or _Queries_ / _Time_.
 
   > The generated figure in `main.pdf` is imported from
   > `results/table4/table4.tex`.
@@ -190,7 +222,13 @@ Using the PDF, you can validate each of the claims as follows:
 - (**C-R9** / **E-R9**) This is not included in the `main.pdf`, but you should
   have already validated this as part of the "Kick-the-Tires" step above.
 
-### DLS
+### DLS (`unfilter-dls`)
+
+The `unfilter-dls` utility provides implementations of the attacks and benchmarks 
+for the DLS section of the paper. It also provides a Docker integration script for
+running the experiments locally on a single host.
+
+#### Setup (5 human-minutes)
 
 > **Reminder:** We strongly suggest running the DLS experiments on your own
 > setup, if possible.
@@ -213,7 +251,7 @@ bash setup.sh
 find it, open a new terminal or source your shell startup file, such as
 `~/.zshrc`, `~/.bashrc`, or `~/.profile`.
 
-#### Kick-the-Tires
+#### Kick-the-Tires (5 human-minutes)
 
 As a sanity check, check that the experiments work on the smallest dataset:
 
@@ -225,7 +263,7 @@ This should produce `results/reviewer/opensearch_table.tex` and
 `results/reviewer/elasticsearch_table.tex`. The rows should match the first row
 of Table 6 in the paper. If this works, you should be ready.
 
-#### Run All Experiments
+#### Run All Experiments (5 human-minutes + 16–18 compute-hours)
 
 Run all of the experiments:
 
@@ -248,17 +286,17 @@ you would like to rerun existing results, add the
 > bash run.sh --datasets 1,10,100
 > ```
 
-#### Validate Results
+#### Validate Results (5 human-minutes)
 
 You can validate each of the claims as follows:
 
 - (**C-D1** / **E-D1**) Verify that all columns in
-  `results/reviewer/opensearch_table.tex` are identical to Table 6 in the paper,
-  except for Time (min) which may vary based on your experimental setup.
+  `results/reviewer/opensearch_table.tex` are similar to Table 6 in the paper. In particular, "Logical Queries" should be
+  identical.
 
 - (**C-D2** / **E-D2**) Verify that all columns in
-  `results/reviewer/elasticsearch_table.tex` are identical to Table 6 in the
-  paper, except for Time (min) which may vary based on your experimental setup.
+  `results/reviewer/elasticsearch_table.tex` are similar to Table 6 in the paper. In particular, "Logical Queries" should be
+  identical.
 
 - (**C-D3** / **E-D3**) In
   `results/reviewer/reconstructions/opensearch-d10-r1_debruijn_greedy.txt`,
@@ -266,21 +304,3 @@ You can validate each of the claims as follows:
   interested, you can view other reconstructions from the |D| = 10 attacks in
   the same file, or view reconstructions from other attacks in
   `results/reviewer/reconstructions`.
-
-## Development Checks
-
-Both artifacts include local pytest suites that exercise the reviewer CLIs,
-configuration parsing, command construction, result-manifest handling, and core
-attack/reconstruction helpers without launching cloud resources.
-
-```bash
-cd rls
-uv run python -m pytest -q
-
-cd ../dls
-uv run python -m pytest -q
-```
-
-See [`rls/src/tests/README.md`](./rls/src/tests/README.md) and
-[`dls/src/tests/README.md`](./dls/src/tests/README.md) for focused test-running
-examples.
