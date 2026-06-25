@@ -44,9 +44,14 @@ The easiest way to reproduce the RLS experiments is to use `unfilter-rls`'s
 Google Compute Engine integration, which will use any local `gcloud` CLI
 credentials to automatically deploy and orchestrate experiment VMs for you.
 This requires Google Compute Engine credentials (and billing to
-pay for the VMs). **For convenience, we provide credentials
-for you to access a VM authenticated to our own Google Compute Engine instance
-(see the comment on HotCRP for details).** SSH to that instance, then clone the
+pay for the VMs). 
+
+> [!IMPORTANT]
+> For convenience during the artifact evaluation, we provide credentials
+> for you to access a VM authenticated to our own Google Compute Engine instance
+> (see the comment on HotCRP for details). SSH to that instance, then follow the instructions below. 
+
+To start, clone the
 repo:
 
 ```bash
@@ -129,7 +134,7 @@ screen -r
 > scroll the terminal window, you can enter _scroll mode_ by pressing
 > <kbd>Ctrl</kbd> + <kbd>a</kbd> then <kbd>Esc</kbd>, then use <kbd>Ctrl</kbd> +
 > <kbd>u</kbd> (up) and <kbd>Ctrl</kbd> + <kbd>d</kbd> to scroll; to exit
-> _scroll mode_, press <kbd>Esc</kbd>
+> _scroll mode_, press <kbd>Esc</kbd>.
 
 > [!NOTE]
 > **Optional (change experiment options):** You can also run each claim individually by changing the list of arguments
@@ -237,11 +242,17 @@ running the experiments locally on a single host.
 
 #### Setup (5 human-minutes)
 
-> **Reminder:** We strongly suggest running the DLS experiments on your own
-> setup, if possible.
+The entirety of the DLS artifact can be run locally on a single machine. We have 
+tested our DLS setup on fresh Linux (e.g. Debian 13, Ubuntu 24) operating systems. 
 
-We have tested our DLS setup on fresh Linux (e.g. Debian 13, Ubuntu 24)
-operating systems. To start, clone the repo:
+> [!IMPORTANT]
+> **Reminder:** For the artifact evaluation, we **strongly encourage** evaluators to
+> run the DLS experiments on their own
+> setup. Evaluators should not attempt to run the DLS experiments on the entry point VM
+> provided on HotCRP—that VM is a minimal VM that does not have enough memory to run the
+> DLS experiments.
+
+To start, clone the repo:
 
 ```bash
 git clone https://github.com/ZacharyEspiritu/fgac
