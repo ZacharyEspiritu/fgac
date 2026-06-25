@@ -82,26 +82,31 @@ unfilter-rls claims run C-R9
 ```
 
 This will take about 20 compute-minutes to run (most of this time is spent
-provisioning and tearing down Google Cloud VMs). You can see some information
-about the experiment run by running
-
-```bash
-unfilter-rls results list
-```
-
-This will show you a table of all the experiment runs you have run, organized by
-a unique `RUN_ID`. You can inspect the specific run using
-
-```bash
-unfilter-rls results inspect [RUN_ID]
-```
-
-When the run is finished, `unfilter-rls results list` should show the run with
-status `success`. Also, the experiment should have written a file to
-`rls/results/dbsize/summary.txt`. Verify that the numbers align with the
+provisioning and tearing down Google Cloud VMs). 
+When the experiment is done, verify that the numbers align with the
 statistics reported in the "Schema and data" paragraph in Section 3.3 of the
 paper. If this works, you have validated (**C-R9**) and you should be ready to 
 run all the experiments.
+
+> [!NOTE]
+> **Optional (see information about `claims run` instances):** You can see some information
+> about experiment runs by running
+> 
+> ```bash
+> unfilter-rls results list
+> ```
+> 
+> This will show you a table of all the experiment runs you have run, organized by
+> a unique `RUN_ID`. You can inspect the specific run using
+> 
+> ```bash
+> unfilter-rls results inspect [RUN_ID]
+> ```
+> 
+> When the run is finished, `unfilter-rls results list` should show the run with
+> status `success`. Also, the experiment should have written a file to
+> `rls/results/dbsize/summary.txt`.
+
 
 #### Run All Experiments (5 human-minutes + 36 compute-hours)
 
@@ -117,6 +122,7 @@ screen -dm unfilter-rls claims run 1,2,3,4,5,6,7,8,9
 screen -r
 ```
 
+> [!TIP]
 > **Helpful Hints for `screen`:** When attached to a `screen` instance, you can
 > press <kbd>Ctrl</kbd> + <kbd>a</kbd> then <kbd>d</kbd> to detach from the
 > session to let things keep running in the background. If you would like to
@@ -125,6 +131,7 @@ screen -r
 > <kbd>u</kbd> (up) and <kbd>Ctrl</kbd> + <kbd>d</kbd> to scroll; to exit
 > _scroll mode_, press <kbd>Esc</kbd>
 
+> [!NOTE]
 > **Optional (change experiment options):** You can also run each claim individually by changing the list of arguments
 > passed to `unfilter-rls claims run`. (If you are using our Google Cloud
 > infrastructure, we ask that you do not run multiple experiments in parallel to
@@ -276,13 +283,14 @@ successfully completed (e.g., in case you accidentally stop the pipeline). If
 you would like to rerun existing results, add the
 `--destructive-rerun-existing-results` flag.
 
+> [!NOTE]
 > **Optional: shorter experiments with less memory overhead.** The |D| = 1000
 > run requires substantial memory overhead (~64 GB) and 6–8 hours of compute
 > time. To reduce the run time to 2–3 compute-hours and reduce the memory
 > overhead (<10 GB), you can skip the longer |D| = 1000 run by only running
 > against the |D| ∈ {1, 10, 100} datasets:
 >
-> ```
+> ```bash
 > bash run.sh --datasets 1,10,100
 > ```
 
