@@ -24,7 +24,9 @@ from reconstruction.types import JsonObject, JsonValue
 
 
 DEFAULT_RECONSTRUCTION_CONFIG = "src/reconstruction/config/singleattr_binary.yml"
-_MODULE_DEFAULT_CONFIG = Path(__file__).resolve().parent / "config" / "singleattr_binary.yml"
+_MODULE_DEFAULT_CONFIG = (
+    Path(__file__).resolve().parent / "config" / "singleattr_binary.yml"
+)
 
 
 @dataclass(frozen=True)
@@ -35,8 +37,7 @@ class ReconstructionConfig:
 
 
 class _YamlModule(Protocol):
-    def safe_load(self, _stream: object) -> object:
-        ...
+    def safe_load(self, _stream: object) -> object: ...
 
 
 def load_reconstruction_config(path: str) -> ReconstructionConfig:

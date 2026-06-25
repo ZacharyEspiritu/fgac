@@ -18,6 +18,12 @@ import random
 import traceback
 from typing import Dict, List, Optional, Tuple
 
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
 from mitigation.attack import AttackResult, capture_explain, run_attack
 from mitigation.configs import ALL_CONFIGS, CONFIGS_BY_NAME, MitigationConfig
 from mitigation.db_setup import (
@@ -43,6 +49,9 @@ from util.db_backend import DatabaseBackend
 from util.io import write_csv, write_json
 from util.sql_utils import validate_identifier
 from patients.sampling import load_attribute_value_pool, load_patient_sampling_context
+
+
+CONSOLE = Console(highlight=False, width=120)
 
 
 def parse_args() -> argparse.Namespace:
@@ -179,6 +188,132 @@ def write_summary_outputs(
     return summary_csv_path
 
 
+def print_run_panel(
+    args: argparse.Namespace,
+    *,
+    k_values: List[int],
+    selected: List[MitigationConfig],
+    attacker_site: int,
+    authorized_count: int,
+    unauthorized_count: int,
+    nonexistent_count: int,
+) -> None:
+    table = Table.grid(padding=(0, 1))
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column(overflow="fold")
+    table.add_row("Attribute", args.attribute)
+    table.add_row("Attacker", f"{args.attacker_user} (site {attacker_site})")
+    table.add_row("Configurations", ", ".join(config.name for config in selected))
+    table.add_row("Probes", f"{args.probes:,}")
+    table.add_row("k values", ", ".join(str(k) for k in k_values))
+    table.add_row(
+        "Sample pools",
+        (
+            f"authorized={authorized_count:,}, "
+            f"unauthorized={unauthorized_count:,}, "
+            f"nonexistent={nonexistent_count:,}"
+        ),
+    )
+    table.add_row("Output", args.output_dir)
+    table.add_row("Doctors index", "enabled" if args.doctors_index else "disabled")
+    CONSOLE.print(
+        Panel(
+            table,
+            title="Join-Policy Mitigation Sweep",
+            title_align="left",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_config_panel(config: MitigationConfig, index: int, total: int) -> None:
+    table = Table.grid(padding=(0, 1))
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column(overflow="fold")
+    table.add_row("Configuration", config.name)
+    table.add_row("Policy form", config.policy_form)
+    table.add_row("Index layout", config.index_layout)
+    table.add_row("Expected", config.expected_outcome)
+    table.add_row("Description", config.description)
+    CONSOLE.print(
+        Panel(
+            table,
+            title=f"Configuration {index}/{total}",
+            title_align="left",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_explain_panel(label: str, rows: List[str]) -> None:
+    CONSOLE.print(
+        Panel(
+            Text("\n".join(rows)),
+            title=f"EXPLAIN ({label})",
+            title_align="left",
+            border_style="bright_black",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_accuracy_panel(config_name: str, result: AttackResult, k_values: List[int]) -> None:
+    table = Table(
+        box=box.SIMPLE,
+        border_style="bright_black",
+        header_style="bold white",
+        padding=(0, 0),
+        show_lines=False,
+        expand=True,
+    )
+    table.add_column("k", justify="right", no_wrap=True)
+    table.add_column("TP", justify="right", no_wrap=True)
+    table.add_column("TN", justify="right", no_wrap=True)
+    table.add_column("Accuracy", justify="right", no_wrap=True)
+    for k in k_values:
+        table.add_row(
+            str(k),
+            f"{result.tp_rate_pct(k):.2f}%",
+            f"{result.tn_rate_pct(k):.2f}%",
+            f"{result.accuracy_pct(k):.2f}%",
+        )
+    CONSOLE.print(
+        Panel.fit(
+            table,
+            title=f"Mitigation Accuracy - {config_name}",
+            title_align="left",
+            border_style="green",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_artifact_panel(summary_csv_path: str) -> None:
+    table = Table.grid(padding=(0, 1))
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column(overflow="fold")
+    table.add_row("Summary CSV", summary_csv_path)
+    table.add_row("Summary Markdown", os.path.join(os.path.dirname(summary_csv_path), "summary.md"))
+    table.add_row("Config metadata", os.path.join(os.path.dirname(summary_csv_path), "configs.json"))
+    table.add_row("EXPLAIN plans", os.path.join(os.path.dirname(summary_csv_path), "explain_plans.json"))
+    CONSOLE.print(
+        Panel(
+            table,
+            title="Mitigation Artifacts Written",
+            title_align="left",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
 def main() -> None:
     args = parse_args()
 
@@ -224,7 +359,9 @@ def main() -> None:
             )
         if args.doctors_index:
             create_doctors_index(cur)
-            print(f"Created {DOCTORS_INDEX_NAME} on doctors(user_name COLLATE \"C\").")
+            CONSOLE.print(
+                f"[green]Created[/green] {DOCTORS_INDEX_NAME} on doctors(user_name COLLATE \"C\")."
+            )
 
     select_expr = "1" if args.fast else "*"
     limit = 1 if args.fast else None
@@ -239,9 +376,17 @@ def main() -> None:
 
     attacker_conn = backend.connect(args.attacker_dsn)
     try:
-        for config in selected:
-            print(f"\n=== Configuration: {config.name} ===")
-            print(f"    {config.description}")
+        print_run_panel(
+            args,
+            k_values=k_values,
+            selected=selected,
+            attacker_site=patient_context.attacker_site,
+            authorized_count=len(authorized_keys),
+            unauthorized_count=len(unauthorized_keys),
+            nonexistent_count=len(nonexistent_keys),
+        )
+        for config_idx, config in enumerate(selected, start=1):
+            print_config_panel(config, config_idx, len(selected))
             error_message: Optional[str] = None
             result: Optional[AttackResult] = None
             explain_plans: Dict[str, List[str]] = {}
@@ -265,9 +410,7 @@ def main() -> None:
                         nonexistent_key=nonexistent_keys[0],
                     )
                     for label, rows in explain_plans.items():
-                        print(f"    EXPLAIN ({label}):")
-                        for line in rows:
-                            print(f"      {line}")
+                        print_explain_panel(label, rows)
 
                     result = run_attack(
                         config_name=config.name,
@@ -284,12 +427,7 @@ def main() -> None:
                         rng=rng,
                     )
 
-                for k in k_values:
-                    print(
-                        f"    k={k}: TP={result.tp_rate_pct(k):.2f}% "
-                        f"TN={result.tn_rate_pct(k):.2f}% "
-                        f"Acc={result.accuracy_pct(k):.2f}%"
-                    )
+                print_accuracy_panel(config.name, result, k_values)
 
                 config_dir = os.path.join(args.output_dir, config.name)
                 write_per_config_outputs(
@@ -325,23 +463,23 @@ def main() -> None:
             config_metadata=config_metadata,
             explain_records=explain_records,
         )
-        print(f"\nWrote summary to {summary_csv_path}")
+        print_artifact_panel(summary_csv_path)
     finally:
         try:
             attacker_conn.close()
         except Exception:
             pass
         if args.skip_restore:
-            print("--skip-restore set; leaving final config state in place.")
+            CONSOLE.print("[yellow]--skip-restore set; leaving final config state in place.[/yellow]")
         else:
-            print("Restoring baseline state (plpgsql policy + single-column index)...")
+            CONSOLE.print("[cyan]Restoring baseline state[/cyan] (plpgsql policy + single-column index)...")
             try:
                 with admin.cursor() as cur:
                     restore_baseline(cur, attributes=[args.attribute])
                     if args.doctors_index:
                         drop_doctors_index(cur)
-                print("Baseline restored.")
+                CONSOLE.print("[green]Baseline restored.[/green]")
             except Exception as exc:  # pragma: no cover - depends on live PG
-                print(f"WARNING: baseline restore failed: {exc}")
+                CONSOLE.print(f"[yellow]WARNING:[/yellow] baseline restore failed: {exc}")
                 traceback.print_exc()
         admin.close()

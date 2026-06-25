@@ -84,6 +84,9 @@ ADMIN_DB="${ADMIN_DB:-rls}"
 
 log() { echo "[$(date -u +%FT%TZ)] [${RUN_ID:-no-run-id}] $*"; }
 
+PROGRESS_TTY=0
+[[ -t 1 ]] && PROGRESS_TTY=1
+
 if [[ -z "${RUN_ID:-}" ]]; then
   echo "RUN_ID must be set (e.g. export RUN_ID=\"exist-\$(date +%s | tail -c8)\")." >&2
   exit 1
@@ -203,7 +206,13 @@ ALREADY="${ALREADY//[!0-9]/}"; [[ -z "${ALREADY}" ]] && ALREADY=0
 log "  patients table has ${ALREADY} rows (target ${PATIENTS})"
 if [[ "${ALREADY}" -lt "${PATIENTS}" ]]; then
   log "  loading dataset on the attacker..."
-  transport_exec attacker "cd '${REMOTE_DIR}' && venv/bin/python -m patients.setup_db \
+  dataset_rt="transport_exec"
+  dataset_prog_env="export RLS_PROGRESS=0; "
+  if [[ "${PROGRESS_TTY}" == "1" ]]; then
+    dataset_rt="transport_exec_tty"
+    dataset_prog_env="export TERM=xterm-256color RLS_PROGRESS=1; "
+  fi
+  "${dataset_rt}" attacker "${dataset_prog_env}cd '${REMOTE_DIR}' && venv/bin/python -m patients.setup_db \
     --dsn '${ADMIN_DSN}' \
     --create-db \
     --patients ${PATIENTS} \

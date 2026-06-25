@@ -14,13 +14,13 @@
 
 import csv
 import os
-import sys
 import threading
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Dict, Optional, Sequence, TextIO, cast
 
 from reconstruction.candidates import CandidateSpec
+from reconstruction.reporting.console import print_info, print_oracle_summary
 from reconstruction.truth import post_process_oracle_calls
 from reconstruction.types import CsvWriter, DbConnection, DbValue, JsonValue, Summary
 
@@ -65,7 +65,9 @@ class OracleLogs:
         if not enabled:
             return cls()
 
-        oracle_log_path = os.path.join(output_dir, "reconstruction_oracle_calls_raw.csv")
+        oracle_log_path = os.path.join(
+            output_dir, "reconstruction_oracle_calls_raw.csv"
+        )
         use_lock = workers > 1
         attribute_log = LockedCsvLog.create(
             oracle_log_path,
@@ -199,7 +201,7 @@ class OracleLogs:
             return
         self.close()
         if not no_progress_output:
-            print("Post-processing oracle calls against admin ground truth...", file=sys.stderr)
+            print_info("Post-processing oracle calls against admin ground truth...")
         oracle_per_attr = post_process_oracle_calls(
             self.oracle_log_path, output_dir, admin, candidates, table
         )
@@ -208,9 +210,7 @@ class OracleLogs:
             for key in totals:
                 totals[key] += stats[key]
         total_calls = totals["tp"] + totals["fp"] + totals["tn"] + totals["fn"]
-        accuracy = (
-            (totals["tp"] + totals["tn"]) / total_calls if total_calls else None
-        )
+        accuracy = (totals["tp"] + totals["tn"]) / total_calls if total_calls else None
         tpr = (
             totals["tp"] / (totals["tp"] + totals["fn"])
             if (totals["tp"] + totals["fn"])
@@ -228,8 +228,10 @@ class OracleLogs:
         summary["oracle_call_tpr"] = tpr
         summary["oracle_call_tnr"] = tnr
         if not no_progress_output:
-            print(
-                f"Oracle calls: total={total_calls} TP={totals['tp']} FP={totals['fp']} "
-                f"TN={totals['tn']} FN={totals['fn']} accuracy={accuracy}",
-                file=sys.stderr,
+            print_oracle_summary(
+                total_calls=total_calls,
+                totals=totals,
+                accuracy=accuracy,
+                tpr=tpr,
+                tnr=tnr,
             )

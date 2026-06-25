@@ -19,7 +19,10 @@ from typing import Optional, Sequence, Tuple, cast
 
 from reconstruction.probing.in_probe import InProber
 from reconstruction.probing.progress import preview_subset
-from reconstruction.sql.queries import build_tuple_between_query, build_tuple_in_any_query
+from reconstruction.sql.queries import (
+    build_tuple_between_query,
+    build_tuple_in_any_query,
+)
 from reconstruction.truth import TupleWorkerResult
 from reconstruction.tuple.truth_lookup import (
     matching_values_for_prefix,

@@ -15,7 +15,7 @@ belong in their owning package, such as `patients`, `noise`, or `timing_oracle`.
 |         `db_utils.py` | Small cursor fetch helpers for scalar and row-returning SQL queries.                                                |
 |               `io.py` | File IO helpers for parent-directory creation, text, JSON, and CSV read/write.                                      |
 | `postgres_metrics.py` | PostgreSQL cache/statistics snapshots used around timing experiments.                                               |
-|         `progress.py` | Terminal progress bar with TTY/non-TTY behavior.                                                                    |
+|         `progress.py` | Shared Rich progress panel used by long-running loaders and probes.                                                 |
 |     `random_utils.py` | Shared random-selection helpers.                                                                                    |
 |        `sql_utils.py` | SQL identifier validation helpers.                                                                                  |
 |           `timing.py` | High-resolution timing helpers for SQL probes.                                                                      |

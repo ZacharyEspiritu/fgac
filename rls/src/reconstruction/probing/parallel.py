@@ -36,7 +36,9 @@ class ProgressTracker:
             with self.lock:
                 self.count += delta
                 if self.progress:
-                    self.progress.update(min(self.count, self.total), preview=preview or "")
+                    self.progress.update(
+                        min(self.count, self.total), preview=preview or ""
+                    )
             return
         self.count += delta
         if self.progress:
@@ -46,7 +48,9 @@ class ProgressTracker:
         if self.lock:
             with self.lock:
                 if self.progress:
-                    self.progress.update(min(self.count, self.total), preview=preview or "")
+                    self.progress.update(
+                        min(self.count, self.total), preview=preview or ""
+                    )
             return
         if self.progress:
             self.progress.update(min(self.count, self.total), preview=preview or "")
@@ -139,9 +143,7 @@ DbWorkItem = TypeVar("DbWorkItem")
 DbWorkerResult = TypeVar("DbWorkerResult")
 
 
-DbWorkerBody = Callable[
-    [DbWorkItem, DbCursor, Optional[DbCursor]], DbWorkerResult
-]
+DbWorkerBody = Callable[[DbWorkItem, DbCursor, Optional[DbCursor]], DbWorkerResult]
 
 
 def execute_db_workers(
@@ -160,7 +162,9 @@ def execute_db_workers(
 ) -> None:
     def worker_fn(item: DbWorkItem) -> DbWorkerResult:
         attacker_conn = connect(attacker_dsn)
-        admin_conn = connect(admin_dsn) if verify and admin_enabled and admin_dsn else None
+        admin_conn = (
+            connect(admin_dsn) if verify and admin_enabled and admin_dsn else None
+        )
         try:
             with ExitStack() as stack:
                 worker_cur = stack.enter_context(attacker_conn.cursor())
@@ -178,8 +182,6 @@ def execute_db_workers(
             worker_verify_cur = inline_verify_cur
             if worker_verify_cur is None and verify and admin_enabled and inline_admin:
                 worker_verify_cur = stack.enter_context(inline_admin.cursor())
-            merge_fn(
-                worker_body(work_items[0], inline_attacker_cur, worker_verify_cur)
-            )
+            merge_fn(worker_body(work_items[0], inline_attacker_cur, worker_verify_cur))
 
     execute_workers(use_workers, work_items, worker_fn, merge_fn, inline_fn)

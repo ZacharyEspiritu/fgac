@@ -28,7 +28,9 @@ class BinaryProber:
         on_value: Callable[[DbValue, int, int], None],
         tracker: ProgressTracker,
         preview_fn: Callable[[DbValue, DbValue, int, int, int], str],
-        on_range_cold: Optional[Callable[[int, int, DbValue, DbValue, int], None]] = None,
+        on_range_cold: Optional[
+            Callable[[int, int, DbValue, DbValue, int], None]
+        ] = None,
     ) -> List[DbValue]:
         recovered: List[DbValue] = []
         total = len(values)

@@ -225,7 +225,13 @@ ALREADY="${ALREADY//[!0-9]/}"; [[ -z "${ALREADY}" ]] && ALREADY=0
 log "  patients table has ${ALREADY} rows (target ${PATIENTS})"
 if [[ "${ALREADY}" -lt "${PATIENTS}" ]]; then
   log "  loading dataset on the attacker..."
-  transport_exec attacker "cd '${REMOTE_DIR}' && venv/bin/python -m patients.setup_db \
+  dataset_rt="transport_exec"
+  dataset_prog_env="export RLS_PROGRESS=0; "
+  if [[ "${PROGRESS_TTY}" == "1" ]]; then
+    dataset_rt="transport_exec_tty"
+    dataset_prog_env="export TERM=xterm-256color RLS_PROGRESS=1; "
+  fi
+  "${dataset_rt}" attacker "${dataset_prog_env}cd '${REMOTE_DIR}' && venv/bin/python -m patients.setup_db \
     --dsn '${ADMIN_DSN}' --create-db \
     --patients ${PATIENTS} --doctors ${DOCTORS} --sites ${SITES} \
     --rls-policy ${RLS_POLICY} --reset --analyze"

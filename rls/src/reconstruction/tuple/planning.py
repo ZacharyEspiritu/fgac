@@ -128,11 +128,7 @@ def sorted_recovered_values(
 
 
 def _uses_binary_strategy(next_spec: Optional[CandidateSpec]) -> bool:
-    return (
-        next_spec is not None
-        and next_spec.skip_probe
-        and next_spec.binary_search
-    )
+    return next_spec is not None and next_spec.skip_probe and next_spec.binary_search
 
 
 def _require_search_values(
@@ -144,7 +140,5 @@ def _require_search_values(
         )
     search_values = next_spec.search_values
     if isinstance(search_values, RangeValues) and abs(search_values.step) != 1:
-        raise RuntimeError(
-            f"binary_search for {next_attr} requires step of 1 or -1"
-        )
+        raise RuntimeError(f"binary_search for {next_attr} requires step of 1 or -1")
     return search_values

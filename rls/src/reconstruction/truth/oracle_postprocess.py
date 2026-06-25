@@ -50,9 +50,10 @@ def post_process_oracle_calls(
 
     final_path = os.path.join(output_dir, "reconstruction_oracle_calls.csv")
     per_attr: Dict[str, Dict[str, int]] = {}
-    with open(raw_path, "r", newline="", encoding="utf-8") as raw_f, open(
-        final_path, "w", newline="", encoding="utf-8"
-    ) as final_f:
+    with (
+        open(raw_path, "r", newline="", encoding="utf-8") as raw_f,
+        open(final_path, "w", newline="", encoding="utf-8") as final_f,
+    ):
         reader = csv.reader(raw_f)
         writer = csv.writer(final_f)
         header = next(reader)

@@ -69,7 +69,9 @@ def build_in_any_query(
 ) -> str:
     validate_identifier(table)
     validate_identifier(column)
-    return f"SELECT {select_expr} FROM {table} WHERE {column} = ANY({param}){limit_clause}"
+    return (
+        f"SELECT {select_expr} FROM {table} WHERE {column} = ANY({param}){limit_clause}"
+    )
 
 
 def build_tuple_in_any_query(
@@ -108,7 +110,9 @@ def build_tuple_between_query(
     return f"SELECT {select_expr} FROM {table} WHERE {where}{limit_clause}"
 
 
-def build_parts_where(column: str, parts_values: PartsValues) -> Tuple[str, List[DbValue]]:
+def build_parts_where(
+    column: str, parts_values: PartsValues
+) -> Tuple[str, List[DbValue]]:
     validate_identifier(column)
     clauses: List[str] = []
     params: List[DbValue] = []

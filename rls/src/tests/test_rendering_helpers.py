@@ -94,6 +94,22 @@ def test_timing_distribution_summarizes_and_renders_latency_rows(tmp_path) -> No
     assert r"\textit{nonexist}" not in table
 
 
+def test_timing_distribution_prints_rich_summary_panel(capsys) -> None:
+    rows = [
+        ("nonexistent", 1000),
+        ("authorized", 2000),
+        ("unauthorized", 4000),
+    ]
+
+    timing_distribution.print_latency_summary(rows, 1)
+
+    output = capsys.readouterr().out
+    assert "Timing Distribution Summary" in output
+    assert "Class" in output
+    assert "Mean (ns)" in output
+    assert "unauthorized" in output
+
+
 def test_timing_distribution_normalizes_plot_outputs() -> None:
     assert timing_distribution.normalized_plot_output("figure.png", "png") == "figure.png"
     assert timing_distribution.normalized_plot_output("figure.png", "pdf") == "figure.pdf"

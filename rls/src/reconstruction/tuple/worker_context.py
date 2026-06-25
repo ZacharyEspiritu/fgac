@@ -36,8 +36,7 @@ class TupleWorkerBody(Protocol):
         worker_cur: DbCursor,
         verify_cur: Optional[DbCursor],
         state: TupleWorkerResult,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 if TYPE_CHECKING:
@@ -153,7 +152,9 @@ class TupleStepRuntime:
         if not self.current:
             return
         work_items = (
-            chunk_list(self.current, min(self.execution.args.workers, len(self.current)))
+            chunk_list(
+                self.current, min(self.execution.args.workers, len(self.current))
+            )
             if self.use_workers
             else [self.current]
         )

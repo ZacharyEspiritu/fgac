@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import random
-import sys
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
 from reconstruction.candidates import CandidateSpec, LiteralValues, parse_candidate_spec
 from reconstruction.cli import ReconstructionOptions
+from reconstruction.reporting.console import print_info
 from reconstruction.sql.db import (
     fetch_column_type,
     pick_existing_value,
@@ -54,7 +54,9 @@ def prepare_reconstruction_setup(
 
     attributes: List[str]
     if args.attributes:
-        attributes = [attr.strip() for attr in args.attributes.split(",") if attr.strip()]
+        attributes = [
+            attr.strip() for attr in args.attributes.split(",") if attr.strip()
+        ]
     else:
         attributes = list(candidates.keys())
 
@@ -105,9 +107,7 @@ def prepare_reconstruction_setup(
                 column_type = fetch_column_type(cur, args.table, attr)
                 known_values[attr] = KnownValues(
                     exists=pick_existing_value(cur, args.table, attr),
-                    missing=pick_missing_value(
-                        cur, args.table, attr, column_type, rng
-                    ),
+                    missing=pick_missing_value(cur, args.table, attr, column_type, rng),
                 )
 
     if any(attr not in known_values for attr in attributes):
@@ -135,10 +135,9 @@ def load_ground_truth_if_needed(
     ground_truth = GroundTruth.load(admin, table, attributes)
     stage_times["ground_truth_load"] = time.perf_counter() - start
     if not no_progress_output:
-        print(
+        print_info(
             f"Loaded ground truth: {ground_truth.row_count} rows "
-            f"in {stage_times['ground_truth_load']:.2f}s",
-            file=sys.stderr,
+            f"in {stage_times['ground_truth_load']:.2f}s"
         )
     return ground_truth
 
@@ -158,9 +157,7 @@ def resolve_known_tuple(
             if row:
                 return {attr: row[idx] for idx, attr in enumerate(tuple_attrs)}
 
-    raise RuntimeError(
-        "Unable to determine known existing tuple; provide --admin-dsn"
-    )
+    raise RuntimeError("Unable to determine known existing tuple; provide --admin-dsn")
 
 
 def _merge_aligned_tuple_candidates(

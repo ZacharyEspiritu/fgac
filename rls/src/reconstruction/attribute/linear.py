@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 from typing import Optional, Sequence
 
 from reconstruction.attribute.workers import (
@@ -21,6 +20,7 @@ from reconstruction.attribute.workers import (
     AttributeProbeRuntime,
 )
 from reconstruction.runtime.execution import ReconstructionExecution
+from reconstruction.reporting.console import print_info
 from reconstruction.probing.linear import LinearProber
 from reconstruction.probing.parallel import chunk_list
 from reconstruction.types import DbCursor, DbValue
@@ -37,7 +37,7 @@ def run_linear_probe(
     args = runtime.args
     total_values = len(values)
     if not args.no_progress_output:
-        print(f"Probing attribute {attr} ({total_values} candidates)", file=sys.stderr)
+        print_info(f"Probing attribute {attr} ({total_values} candidates)")
     probe_runtime = AttributeProbeRuntime.create(
         runtime,
         cur,

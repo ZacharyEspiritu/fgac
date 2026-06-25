@@ -14,13 +14,13 @@
 
 import csv
 import os
-import sys
 import time
 from contextlib import ExitStack
 from typing import Dict, List, Tuple
 
 from reconstruction.probing.parallel import make_probe_step
 from reconstruction.probing.query_runner import ProbeQueryRunner
+from reconstruction.reporting.console import print_info, print_success
 from reconstruction.runtime.execution import ReconstructionExecution
 from reconstruction.runtime.setup import resolve_known_tuple
 from reconstruction.sql.queries import build_query
@@ -43,9 +43,13 @@ def build_tuples(
     verify_tuple_query = build_query(
         runtime.args.table, tuple_attrs, select_expr="1", limit_clause=" LIMIT 1"
     )
-    tuple_header = (
-        [*tuple_attrs, "min_elapsed_ns", "threshold_ns", "exists_guess", "exists_truth"]
-    )
+    tuple_header = [
+        *tuple_attrs,
+        "min_elapsed_ns",
+        "threshold_ns",
+        "exists_guess",
+        "exists_truth",
+    ]
     tuple_tested_count = 0
     tuple_stats = CorrectnessStats()
     tuple_step_stats: Dict[int, CorrectnessStats] = {}
@@ -68,7 +72,7 @@ def build_tuples(
             (value,) for value in runtime.state.recovered.get(tuple_attrs[0], [])
         ]
         if not runtime.args.no_progress_output:
-            print("Calibrating tuple thresholds (stepwise)...", file=sys.stderr)
+            print_info("Calibrating tuple thresholds (stepwise)...")
 
         planning_context = TuplePlanningContext(
             execution=runtime,
@@ -92,15 +96,11 @@ def build_tuples(
 
             if not runtime.args.no_progress_output:
                 if plan.total_candidates == 0:
-                    print(
-                        f"No tuple combinations to probe at length {step}.",
-                        file=sys.stderr,
-                    )
+                    print_info(f"No tuple combinations to probe at length {step}.")
                 else:
-                    print(
+                    print_info(
                         f"Probing tuples of length {step} "
-                        f"({plan.total_candidates} combinations)",
-                        file=sys.stderr,
+                        f"({plan.total_candidates} combinations)"
                     )
 
             probe_step = make_probe_step(
@@ -147,9 +147,8 @@ def build_tuples(
             tuple_tested_count += step_runtime.tested_count
             current = step_runtime.next_current
             if not runtime.args.no_progress_output:
-                print(
-                    f"Recovered {len(current)} tuple prefixes of length {step}",
-                    file=sys.stderr,
+                print_success(
+                    f"Recovered {len(current)} tuple prefixes of length {step}"
                 )
 
         tuple_output.flush()

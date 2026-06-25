@@ -46,7 +46,9 @@ def candidate_domain_contains(domain: CandidateValues | None, value: DbValue) ->
     if domain is None:
         return False
     if isinstance(domain, CompositeValues):
-        return any(candidate_domain_contains(segment, value) for segment in domain.segments)
+        return any(
+            candidate_domain_contains(segment, value) for segment in domain.segments
+        )
     if isinstance(domain, RangeSlice):
         return _range_slice_contains(domain, value)
     if isinstance(domain, PartsValues):

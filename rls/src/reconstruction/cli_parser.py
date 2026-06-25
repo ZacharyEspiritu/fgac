@@ -24,7 +24,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Attempt to reconstruct tuples of chosen attributes using timing side-channels."
         ),
     )
-    parser.add_argument("--attacker-dsn", required=True, help="Attacker DSN (RLS applies).")
+    parser.add_argument(
+        "--attacker-dsn", required=True, help="Attacker DSN (RLS applies)."
+    )
     parser.add_argument(
         "--admin-dsn",
         required=True,

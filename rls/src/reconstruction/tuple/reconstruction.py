@@ -31,7 +31,9 @@ class TupleReconstructionResult:
     tuple_step_stats: Dict[int, CorrectnessStats]
 
 
-def run_tuple_reconstruction(runtime: ReconstructionExecution) -> TupleReconstructionResult:
+def run_tuple_reconstruction(
+    runtime: ReconstructionExecution,
+) -> TupleReconstructionResult:
     args = runtime.args
     attributes = runtime.attributes
     state = runtime.state

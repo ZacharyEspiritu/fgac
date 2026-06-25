@@ -22,11 +22,9 @@ from reconstruction.types import DbValue, SupportsValueAt
 
 
 class CandidateValues(Protocol):
-    def __iter__(self) -> Iterator[DbValue]:
-        ...
+    def __iter__(self) -> Iterator[DbValue]: ...
 
-    def __len__(self) -> int:
-        ...
+    def __len__(self) -> int: ...
 
 
 def _range_length(start: int, end: int, step: int) -> int:
@@ -128,7 +126,9 @@ class PartsValues:
         ranges = []
         widths = []
         for start, end, step, width in self.parts:
-            ranges.append(range(start, end + 1, step) if step > 0 else range(start, end - 1, step))
+            ranges.append(
+                range(start, end + 1, step) if step > 0 else range(start, end - 1, step)
+            )
             widths.append(width)
         for combo in itertools.product(*ranges):
             formatted = [f"{value:0{widths[idx]}d}" for idx, value in enumerate(combo)]

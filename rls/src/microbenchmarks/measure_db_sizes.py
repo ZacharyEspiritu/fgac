@@ -26,7 +26,12 @@ Output is printed to stdout in human-readable form and optionally written to
 
 import argparse
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
+
+from rich import box
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.table import Table
 
 from util.db_backend import DatabaseBackend
 from util.db_utils import fetch_all, fetch_optional_value
@@ -57,6 +62,120 @@ class IndexMetric:
     size_pretty: str
     is_primary: bool
     columns: str
+
+
+def render_size_report(
+    *,
+    postgres_version: object,
+    block_size_bytes: int,
+    shared_buffers_bytes: int,
+    max_connections: int,
+    ssl_on: object,
+    patients_row_count: int,
+    doctors_row_count: int,
+    sites_count: int,
+    patients_heap_bytes: int,
+    patients_toast_bytes: int,
+    patients_indexes_total_bytes: int,
+    patients_total_bytes: int,
+    patients_avg_tuple_width_bytes: Optional[int],
+    patients_indexes: Sequence[IndexMetric],
+    doctors_heap_bytes: int,
+    doctors_indexes_total_bytes: int,
+    doctors_total_bytes: int,
+    database_name: object,
+    database_total_bytes: int,
+    fits_text: str,
+    mb: Callable[[Optional[int]], str],
+) -> None:
+    summary = Table(
+        title="Database Size Summary",
+        box=box.SIMPLE,
+        border_style="bright_black",
+        header_style="bold white",
+        padding=(0, 0),
+        show_lines=False,
+        expand=True,
+    )
+    summary.add_column("Section", style="bold cyan", no_wrap=True)
+    summary.add_column("Metric", style="bold", no_wrap=True)
+    summary.add_column("Value", overflow="fold")
+
+    summary.add_row("PostgreSQL", "version", str(postgres_version))
+    summary.add_row("", "block size", f"{block_size_bytes:,} bytes")
+    summary.add_row(
+        "",
+        "shared_buffers",
+        f"{mb(shared_buffers_bytes)} ({shared_buffers_bytes:,} bytes)",
+    )
+    summary.add_row("", "max_connections", f"{max_connections:,}")
+    summary.add_row("", "ssl", str(ssl_on))
+    summary.add_section()
+
+    summary.add_row("Dataset", "patients rows", f"{patients_row_count:,}")
+    summary.add_row("", "doctors rows", f"{doctors_row_count:,}")
+    summary.add_row("", "distinct sites", f"{sites_count:,}")
+    summary.add_section()
+
+    summary.add_row(
+        "patients",
+        "heap (main fork)",
+        f"{mb(patients_heap_bytes)} ({patients_heap_bytes:,} bytes)",
+    )
+    summary.add_row("", "TOAST", mb(patients_toast_bytes))
+    summary.add_row("", "all indexes", mb(patients_indexes_total_bytes))
+    summary.add_row("", "TOTAL (incl. idx)", mb(patients_total_bytes))
+    summary.add_row(
+        "",
+        "avg tuple width",
+        (
+            f"{patients_avg_tuple_width_bytes} bytes (sum of pg_stats.avg_width)"
+            if patients_avg_tuple_width_bytes is not None
+            else "n/a"
+        ),
+    )
+    summary.add_section()
+
+    summary.add_row("doctors", "heap", mb(doctors_heap_bytes))
+    summary.add_row("", "all indexes", mb(doctors_indexes_total_bytes))
+    summary.add_row("", "TOTAL", mb(doctors_total_bytes))
+    summary.add_section()
+
+    summary.add_row("Database", f"{database_name!s} total", mb(database_total_bytes))
+    summary.add_row("", f"fits in shared_buffers ({mb(shared_buffers_bytes)})?", fits_text)
+
+    indexes = Table(
+        title="patients per-index breakdown",
+        box=box.SIMPLE,
+        border_style="bright_black",
+        header_style="bold white",
+        padding=(0, 0),
+        show_lines=False,
+        expand=True,
+    )
+    indexes.add_column("Index", style="bold", overflow="fold")
+    indexes.add_column("Size", justify="right", no_wrap=True)
+    indexes.add_column("Columns", overflow="fold")
+    indexes.add_column("Primary", justify="center", no_wrap=True)
+    for idx in patients_indexes:
+        indexes.add_row(
+            idx.name,
+            idx.size_pretty,
+            f"({idx.columns})",
+            "yes" if idx.is_primary else "",
+        )
+
+    Console(highlight=False, markup=False, width=120).print(
+        Panel(
+            Group(summary, indexes),
+            title="C-R9 PostgreSQL Physical Size Report",
+            title_align="left",
+            subtitle="catalog measurements from pg_relation_size / pg_database_size",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
 
 
 def require_int(value: object, label: str) -> int:
@@ -249,43 +368,35 @@ def main() -> None:
         "database_total_bytes": database_total_bytes,
     }
 
-    print(f"PostgreSQL:           {postgres_version}")
-    print(f"Block size:           {block_size_bytes} bytes")
-    print(f"shared_buffers:       {mb(shared_buffers_bytes)} ({shared_buffers_bytes} bytes)")
-    print(f"max_connections:      {max_connections}")
-    print(f"ssl:                  {ssl_on}")
-    print()
-    print("Dataset")
-    print(f"  patients rows:      {patients_row_count:,}")
-    print(f"  doctors rows:       {doctors_row_count:,}")
-    print(f"  distinct sites:     {sites_count}")
-    print()
-    print("patients physical sizes")
-    print(f"  heap (main fork):   {mb(patients_heap_bytes)} ({patients_heap_bytes:,} bytes)")
-    print(f"  TOAST:              {mb(patients_toast_bytes)}")
-    print(f"  all indexes:        {mb(patients_indexes_total_bytes)}")
-    print(f"  TOTAL (incl. idx):  {mb(patients_total_bytes)}")
-    print(f"  avg tuple width:    {patients_avg_tuple_width_bytes} bytes (sum of pg_stats.avg_width)")
-    print()
-    print("  per-index breakdown:")
-    for idx in patients_indexes:
-        pk = " [PK]" if idx.is_primary else ""
-        print(f"    {idx.name:<38}  {idx.size_pretty:>10}   cols: ({idx.columns}){pk}")
-    print()
-    print("doctors physical sizes")
-    print(f"  heap:               {mb(doctors_heap_bytes)}")
-    print(f"  all indexes:        {mb(doctors_indexes_total_bytes)}")
-    print(f"  TOTAL:              {mb(doctors_total_bytes)}")
-    print()
-    print(f"Database '{database_name}' total: {mb(database_total_bytes)}")
-    print()
     fits_shared_buffers = patients_total_bytes <= shared_buffers_bytes
     fits_text = (
         "YES"
         if fits_shared_buffers
         else f"NO — OS page cache covers the rest (total DB = {mb(database_total_bytes)} << 64 GB RAM)"
     )
-    print(f"Fits in shared_buffers ({mb(shared_buffers_bytes)})?  {fits_text}")
+    render_size_report(
+        postgres_version=postgres_version,
+        block_size_bytes=block_size_bytes,
+        shared_buffers_bytes=shared_buffers_bytes,
+        max_connections=max_connections,
+        ssl_on=ssl_on,
+        patients_row_count=patients_row_count,
+        doctors_row_count=doctors_row_count,
+        sites_count=sites_count,
+        patients_heap_bytes=patients_heap_bytes,
+        patients_toast_bytes=patients_toast_bytes,
+        patients_indexes_total_bytes=patients_indexes_total_bytes,
+        patients_total_bytes=patients_total_bytes,
+        patients_avg_tuple_width_bytes=patients_avg_tuple_width_bytes,
+        patients_indexes=patients_indexes,
+        doctors_heap_bytes=doctors_heap_bytes,
+        doctors_indexes_total_bytes=doctors_indexes_total_bytes,
+        doctors_total_bytes=doctors_total_bytes,
+        database_name=database_name,
+        database_total_bytes=database_total_bytes,
+        fits_text=fits_text,
+        mb=mb,
+    )
 
     if args.output:
         write_json(args.output, metrics, sort_keys=True)

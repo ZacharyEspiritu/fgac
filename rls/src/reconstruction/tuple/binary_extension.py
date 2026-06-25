@@ -35,7 +35,9 @@ def run_binary_extension(step_runtime: TupleStepRuntime) -> None:
     next_attr = plan.next_attr
     maybe_search_values = plan.search_values
     if maybe_search_values is None:
-        raise RuntimeError(f"binary_search enabled but no range/parts spec for {next_attr}")
+        raise RuntimeError(
+            f"binary_search enabled but no range/parts spec for {next_attr}"
+        )
     search_values: SupportsValueAt = maybe_search_values
 
     range_query = build_tuple_range_query(

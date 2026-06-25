@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import time
 
 from reconstruction.attribute.calibration import calibrate_attribute
 from reconstruction.attribute.binary import run_binary_probe
 from reconstruction.attribute.linear import run_linear_probe
+from reconstruction.reporting.console import print_info, print_success
 from reconstruction.sql.queries import build_query
 from reconstruction.runtime.execution import ReconstructionExecution
 from reconstruction.verification import verify_recovered_attribute
@@ -49,9 +49,8 @@ def run_attribute_reconstruction(runtime: ReconstructionExecution) -> None:
                 recovered_values = list(attr_candidates)
                 state.skipped_probe[attr] = True
                 if not args.no_progress_output:
-                    print(
+                    print_info(
                         f"Skipping {attr} probing; using {len(recovered_values)} candidates",
-                        file=sys.stderr,
                     )
             elif spec.binary_search:
                 search_values = spec.search_values
@@ -80,10 +79,9 @@ def run_attribute_reconstruction(runtime: ReconstructionExecution) -> None:
                 recovered_values = probe_result.recovered_values
                 state.values_rows.extend(probe_result.rows)
 
-            state.stage_times[f"attr_probe:{attr}"] = (
-                state.stage_times.get(f"attr_probe:{attr}", 0.0)
-                + (time.perf_counter() - probe_start)
-            )
+            state.stage_times[f"attr_probe:{attr}"] = state.stage_times.get(
+                f"attr_probe:{attr}", 0.0
+            ) + (time.perf_counter() - probe_start)
             state.recovered[attr] = recovered_values
             verify_recovered_attribute(
                 runtime.verify,
@@ -98,7 +96,4 @@ def run_attribute_reconstruction(runtime: ReconstructionExecution) -> None:
                 state.sampled_verify_counts,
             )
             if not args.no_progress_output:
-                print(
-                    f"Recovered {len(recovered_values)} values for {attr}",
-                    file=sys.stderr,
-                )
+                print_success(f"Recovered {len(recovered_values)} values for {attr}")

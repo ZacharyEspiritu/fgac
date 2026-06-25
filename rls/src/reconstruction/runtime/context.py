@@ -32,8 +32,7 @@ class ReconstructionBackend(BackendLike, Protocol):
         cur: DbCursor,
         _policy: str,
         _tables: Sequence[str],
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 @dataclass
@@ -68,7 +67,9 @@ class ReconstructionContext:
 
 
 @contextmanager
-def open_reconstruction_context(args: ReconstructionOptions) -> Iterator[ReconstructionContext]:
+def open_reconstruction_context(
+    args: ReconstructionOptions,
+) -> Iterator[ReconstructionContext]:
     with ExitStack() as stack:
         backend = cast(
             ReconstructionBackend,

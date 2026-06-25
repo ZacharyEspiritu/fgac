@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import operator
-import sys
 import time
 from dataclasses import dataclass
 from typing import Optional, Tuple, cast
 
 from reconstruction.candidates import CandidateSpec
 from reconstruction.probing.query_runner import ProbeQueryRunner
+from reconstruction.reporting.console import print_info
 from reconstruction.runtime.execution import ReconstructionExecution
 from reconstruction.sql.queries import build_query, build_range_query
 from reconstruction.types import ComparableValue, DbCursor, DbValue
@@ -49,9 +49,7 @@ def calibrate_attribute(
     missing_params: Tuple[DbValue, ...]
     exists_params: Tuple[DbValue, ...]
     if spec is not None and spec.binary_search:
-        query = build_range_query(
-            args.table, attr, "1", " LIMIT 1"
-        )
+        query = build_range_query(args.table, attr, "1", " LIMIT 1")
         missing_params = (
             known_values[attr].missing,
             known_values[attr].missing,
@@ -66,7 +64,7 @@ def calibrate_attribute(
         exists_params = (known_values[attr].exists,)
 
     if not args.no_progress_output:
-        print(f"Calibrating {attr} threshold...", file=sys.stderr)
+        print_info(f"Calibrating {attr} threshold...")
     start = time.perf_counter()
     runner = ProbeQueryRunner(
         args.num_queries_for_initial_calibration,
@@ -85,9 +83,9 @@ def calibrate_attribute(
         exists_params,
         label=f"attr_cal:{attr}",
     )
-    state.stage_times[f"attr_cal:{attr}"] = (
-        state.stage_times.get(f"attr_cal:{attr}", 0.0) + (time.perf_counter() - start)
-    )
+    state.stage_times[f"attr_cal:{attr}"] = state.stage_times.get(
+        f"attr_cal:{attr}", 0.0
+    ) + (time.perf_counter() - start)
     return AttributeCalibration(
         threshold=int(rt_missing + (rt_exists - rt_missing) / 2),
         gap=max(int(rt_exists) - int(rt_missing), 0),
@@ -118,7 +116,7 @@ def warm_attribute_index(
         lo_bound, hi_bound = hi_bound, lo_bound
 
     if not args.no_progress_output:
-        print(f"Warming index for {attr} (admin)...", file=sys.stderr)
+        print_info(f"Warming index for {attr} (admin)...")
     start = time.perf_counter()
     with admin.cursor() as admin_cur:
         admin_cur.execute(
@@ -127,7 +125,6 @@ def warm_attribute_index(
             (lo_bound, hi_bound),
         )
         admin_cur.fetchone()
-    runtime.state.stage_times[f"warmup:{attr}"] = (
-        runtime.state.stage_times.get(f"warmup:{attr}", 0.0)
-        + (time.perf_counter() - start)
-    )
+    runtime.state.stage_times[f"warmup:{attr}"] = runtime.state.stage_times.get(
+        f"warmup:{attr}", 0.0
+    ) + (time.perf_counter() - start)

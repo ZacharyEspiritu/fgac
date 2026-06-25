@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Sequence, TypeVar
+from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from reconstruction.types import DbValue
 
@@ -41,7 +42,10 @@ def preview_subset(subset: Sequence[T]) -> str:
     return f"{subset[0]}..{subset[-1]} ({len(subset)})"
 
 
-def make_range_preview(total: int, offset: int = 0):
+def make_range_preview(
+    total: int,
+    offset: int = 0,
+) -> Callable[[DbValue, DbValue, int, int, int], str]:
     def preview(low: DbValue, high: DbValue, lo: int, hi: int, _total: int) -> str:
         global_lo = offset + lo
         global_hi = offset + hi

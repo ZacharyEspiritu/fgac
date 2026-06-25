@@ -24,6 +24,7 @@ from reconstruction.config_options import (
     optional_string_option,
     string_option,
 )
+from reconstruction.reporting.console import print_parameters
 
 
 TupleExtensionMode = Literal["any", "between"]
@@ -53,12 +54,10 @@ class ReconstructionOptions:
 
 
 def print_params(args: ReconstructionOptions) -> None:
-    print("Parameters:")
     values = asdict(args)
     values.pop("candidates")
     values["candidate_attributes"] = ",".join(sorted(args.candidates))
-    for key in sorted(values):
-        print(f"  {key}={values[key]}")
+    print_parameters(values)
 
 
 def validate_run_args(args: ReconstructionOptions) -> None:
@@ -105,15 +104,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> ReconstructionOptions:
         num_queries_for_initial_calibration=int_option(
             namespace, config, "num_queries_for_initial_calibration", 3
         ),
-        num_queries_per_probe=int_option(
-            namespace, config, "num_queries_per_probe", 1
-        ),
+        num_queries_per_probe=int_option(namespace, config, "num_queries_per_probe", 1),
         workers=int_option(namespace, config, "workers", 1),
         verify=bool_option(namespace, config, "verify", False),
         output_dir=string_option(namespace, config, "output_dir", "results"),
-        no_progress_output=bool_option(
-            namespace, config, "no_progress_output", False
-        ),
+        no_progress_output=bool_option(namespace, config, "no_progress_output", False),
         log_oracle_calls=bool_option(namespace, config, "log_oracle_calls", False),
         tuple_recompute_threshold=bool_option(
             namespace, config, "tuple_recompute_threshold", False

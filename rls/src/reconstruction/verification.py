@@ -60,10 +60,14 @@ def verify_recovered_attribute(
             spec.values,
             ground_truth.values_for(attr),
         )
-        sampled_verify_counts[attr] = compute_correctness(truth_values, recovered_values)
+        sampled_verify_counts[attr] = compute_correctness(
+            truth_values, recovered_values
+        )
     elif admin and spec.skip_probe:
         with admin.cursor() as verify_cur:
             truth_values = fetch_truth_values_for_in(
                 verify_cur, table, attr, list(spec.values), backend
             )
-        sampled_verify_counts[attr] = compute_correctness(truth_values, recovered_values)
+        sampled_verify_counts[attr] = compute_correctness(
+            truth_values, recovered_values
+        )

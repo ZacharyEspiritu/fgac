@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 from typing import Optional, Tuple
 
 from reconstruction.attribute.workers import (
@@ -22,6 +21,7 @@ from reconstruction.attribute.workers import (
 )
 from reconstruction.candidates import RangeSlice, RangeValues
 from reconstruction.runtime.execution import ReconstructionExecution
+from reconstruction.reporting.console import print_info
 from reconstruction.probing.progress import make_range_preview
 from reconstruction.probing.binary import BinaryProber
 from reconstruction.probing.parallel import chunk_indices
@@ -42,7 +42,7 @@ def run_binary_probe(
 
     total_values = len(search_values)
     if not args.no_progress_output:
-        print(f"Binary search probing {attr} ({total_values} values)", file=sys.stderr)
+        print_info(f"Binary search probing {attr} ({total_values} values)")
     probe_runtime = AttributeProbeRuntime.create(
         runtime,
         cur,

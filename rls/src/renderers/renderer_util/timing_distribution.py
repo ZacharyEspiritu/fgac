@@ -17,6 +17,11 @@ import os
 import statistics
 from typing import Dict, List, Sequence, Tuple
 
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from .io import ensure_parent_dir
 
 
@@ -60,8 +65,31 @@ def summarize_latency_rows(
 
 
 def print_latency_summary(rows: Sequence[Tuple], elapsed_index: int) -> None:
+    table = Table(
+        box=box.SIMPLE,
+        border_style="bright_black",
+        header_style="bold white",
+        padding=(0, 0),
+        show_lines=False,
+        expand=True,
+    )
+    table.add_column("Class", style="bold", no_wrap=True)
+    table.add_column("Min (ns)", justify="right", no_wrap=True)
+    table.add_column("Mean (ns)", justify="right", no_wrap=True)
+    table.add_column("Std (ns)", justify="right", no_wrap=True)
     for label, (min_ns, mean_ns, std_ns) in summarize_latency_rows(rows, elapsed_index).items():
-        print(f"{label}: min={min_ns:.0f}ns mean={mean_ns:.0f}ns std={std_ns:.0f}ns")
+        table.add_row(label, f"{min_ns:.0f}", f"{mean_ns:.0f}", f"{std_ns:.0f}")
+
+    Console(highlight=False, markup=False, width=120).print(
+        Panel.fit(
+            table,
+            title="Timing Distribution Summary",
+            title_align="left",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
 
 
 def read_latency_groups(path: str) -> Tuple[Dict[str, List[float]], List[str]]:

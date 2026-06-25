@@ -33,7 +33,9 @@ class GroundTruth:
         ] = {}
 
     @classmethod
-    def load(cls, admin: DbConnection, table: str, attributes: Sequence[str]) -> "GroundTruth":
+    def load(
+        cls, admin: DbConnection, table: str, attributes: Sequence[str]
+    ) -> "GroundTruth":
         validate_identifier(table)
         for attr in attributes:
             validate_identifier(attr)

@@ -63,7 +63,9 @@ def fetch_truth_values_for_binary(
         high_cmp = cast(ComparableValue, high)
         if operator.gt(low_cmp, high_cmp):
             low, high = high, low
-        query = f"SELECT DISTINCT {column} FROM {table} WHERE {column} BETWEEN %s AND %s"
+        query = (
+            f"SELECT DISTINCT {column} FROM {table} WHERE {column} BETWEEN %s AND %s"
+        )
         cur.execute(query, (low, high))
         return [cast(DbValue, row[0]) for row in cur.fetchall()]
     if isinstance(values, PartsValues):
@@ -71,7 +73,9 @@ def fetch_truth_values_for_binary(
         query = f"SELECT DISTINCT {column} FROM {table} WHERE {where}"
         cur.execute(query, params)
         return [cast(DbValue, row[0]) for row in cur.fetchall()]
-    raise RuntimeError(f"binary_search verification requires range or parts spec for {column}")
+    raise RuntimeError(
+        f"binary_search verification requires range or parts spec for {column}"
+    )
 
 
 def fetch_truth_values_for_in(
@@ -87,6 +91,8 @@ def fetch_truth_values_for_in(
     validate_identifier(column)
     if backend.name != "postgres":
         raise RuntimeError("IN strategy with ANY() requires PostgreSQL")
-    query = build_in_any_query(table, column, backend.param, select_expr=f"DISTINCT {column}")
+    query = build_in_any_query(
+        table, column, backend.param, select_expr=f"DISTINCT {column}"
+    )
     cur.execute(query, (list(values),))
     return [cast(DbValue, row[0]) for row in cur.fetchall()]
