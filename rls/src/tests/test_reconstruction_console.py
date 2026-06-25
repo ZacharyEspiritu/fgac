@@ -62,22 +62,3 @@ def test_reconstruction_final_report_prints_rich_tables(
     assert "Tuple length" in captured.err
     assert "Attacker queries" in captured.err
     assert "Seconds" in captured.err
-
-
-def test_reconstruction_oracle_summary_prints_rich_panel(
-    capsys: CaptureFixture[str],
-) -> None:
-    console.print_oracle_summary(
-        total_calls=10,
-        totals={"tp": 4, "fp": 1, "tn": 5, "fn": 0},
-        accuracy=0.9,
-        tpr=1.0,
-        tnr=0.833333,
-    )
-
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "Oracle Call Audit" in captured.err
-    assert "Total calls" in captured.err
-    assert "Accuracy" in captured.err
-    assert "0.900" in captured.err

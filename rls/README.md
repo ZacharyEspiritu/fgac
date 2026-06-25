@@ -175,10 +175,16 @@ Every top-level runner and claim CLI invocation that provisions GCP **tears its
 stack down automatically on exit**: on success _or_ failure. However, if you
 accidentally kill the script in the middle of the teardown process, VMs can be
 unintentionally left running which will incur unnecessary billing costs. If this
-happens, use this script to force-remove a VM stack that was left up:
+happens, use the results cleanup helper to force-remove one leftover stack:
 
 ```bash
-bash orchestration/provision/cleanup_vms.sh --machines results/machines/<RUN_ID>.yml
+unfilter-rls results cleanup-vms <RUN_ID>
+```
+
+To clean every known leftover set of VMs specified under `results/machines/`:
+
+```bash
+unfilter-rls results cleanup-vms --all
 ```
 
 ## Configuration Options

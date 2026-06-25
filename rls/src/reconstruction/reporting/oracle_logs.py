@@ -20,7 +20,7 @@ from types import TracebackType
 from typing import Dict, Optional, Sequence, TextIO, cast
 
 from reconstruction.candidates import CandidateSpec
-from reconstruction.reporting.console import print_info, print_oracle_summary
+from reconstruction.reporting.console import print_info
 from reconstruction.truth import post_process_oracle_calls
 from reconstruction.types import CsvWriter, DbConnection, DbValue, JsonValue, Summary
 
@@ -227,11 +227,3 @@ class OracleLogs:
         summary["oracle_call_accuracy"] = accuracy
         summary["oracle_call_tpr"] = tpr
         summary["oracle_call_tnr"] = tnr
-        if not no_progress_output:
-            print_oracle_summary(
-                total_calls=total_calls,
-                totals=totals,
-                accuracy=accuracy,
-                tpr=tpr,
-                tnr=tnr,
-            )

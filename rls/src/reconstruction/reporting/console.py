@@ -55,12 +55,6 @@ def _table(*, title: Optional[str] = None, expand: bool = True) -> Table:
     )
 
 
-def _format_optional_ratio(value: Optional[float]) -> str:
-    if value is None:
-        return "n/a"
-    return f"{value:.3f}"
-
-
 def print_info(message: str) -> None:
     _console(stderr=True).print(Text(message, style="dim"))
 
@@ -105,28 +99,6 @@ def print_final_report(
         return
 
     _console(stderr=True).print(_panel("Reconstruction Summary", Group(*sections)))
-
-
-def print_oracle_summary(
-    *,
-    total_calls: int,
-    totals: Mapping[str, int],
-    accuracy: Optional[float],
-    tpr: Optional[float],
-    tnr: Optional[float],
-) -> None:
-    table = _table()
-    table.add_column("Metric", style="bold cyan", no_wrap=True)
-    table.add_column("Value", justify="right")
-    table.add_row("Total calls", f"{total_calls:,}")
-    table.add_row("True positives", f"{totals.get('tp', 0):,}")
-    table.add_row("False positives", f"{totals.get('fp', 0):,}")
-    table.add_row("True negatives", f"{totals.get('tn', 0):,}")
-    table.add_row("False negatives", f"{totals.get('fn', 0):,}")
-    table.add_row("Accuracy", _format_optional_ratio(accuracy))
-    table.add_row("TPR", _format_optional_ratio(tpr))
-    table.add_row("TNR", _format_optional_ratio(tnr))
-    _console(stderr=True).print(_panel("Oracle Call Audit", table))
 
 
 def _verification_summary_table(summary: Summary) -> Table:

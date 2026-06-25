@@ -114,6 +114,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the underlying manifest YAML.",
     )
+    cleanup_vms = result_subparsers.add_parser(
+        "cleanup-vms",
+        help="Clean up GCP VMs left behind by an artifact run.",
+    )
+    cleanup_vms.add_argument(
+        "run_id",
+        nargs="?",
+        help="Run ID to clean, e.g. all-12345678. Omit only with --all.",
+    )
+    cleanup_vms.add_argument(
+        "--all",
+        dest="all_runs",
+        action="store_true",
+        help="Clean every machine descriptor under this checkout's results/machines/.",
+    )
+    cleanup_vms.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print cleanup commands without executing them.",
+    )
 
     return parser
 

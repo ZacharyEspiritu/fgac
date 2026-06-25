@@ -38,6 +38,22 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+resolve_config_path() {
+  local config_path="$1"
+  local fallback
+  if [[ -f "${config_path}" ]]; then
+    printf '%s\n' "${config_path}"
+    return 0
+  fi
+  fallback="${ORCHESTRATION_DIR}/config/$(basename "${config_path}")"
+  if [[ -f "${fallback}" ]]; then
+    echo "cleanup: config ${config_path} not found; using ${fallback} instead." >&2
+    printf '%s\n' "${fallback}"
+    return 0
+  fi
+  printf '%s\n' "${config_path}"
+}
+
 # --machines: take RUN_ID / PROJECT / ZONE (and the VM names) from a machine
 # descriptor instead of the RUN_ID env var. Parse it before the run-id overlay
 # so the overlay derives this run's network/subnet/firewall names.
@@ -54,6 +70,7 @@ if [[ -n "${MACHINES_FILE}" ]]; then
     echo "cleanup: descriptor ${MACHINES_FILE} has no config_file; cannot derive network names." >&2
     exit 1
   fi
+  CONFIG_ARG="$(resolve_config_path "${CONFIG_ARG}")"
   # shellcheck source=/dev/null
   . "${ORCHESTRATION_DIR}/util/_load_gcloud_config.sh" "${CONFIG_ARG}"
   RUN_ID="$(_tv MACHINES_RUN_ID)"
@@ -64,6 +81,7 @@ if [[ -n "${MACHINES_FILE}" ]]; then
     exit 1
   fi
 elif [[ -n "${CONFIG_ARG}" ]]; then
+  CONFIG_ARG="$(resolve_config_path "${CONFIG_ARG}")"
   # shellcheck source=/dev/null
   . "${ORCHESTRATION_DIR}/util/_load_gcloud_config.sh" "${CONFIG_ARG}"
   RUN_ID="${RUN_ID_ARG:-${RUN_ID:-}}"
@@ -100,6 +118,53 @@ command -v gcloud >/dev/null 2>&1 || {
 
 gcloud config set project "${PROJECT}" >/dev/null
 
+delete_vms_by_zone() {
+  local verify_existing="${1:-1}"
+  local -a zones=()
+  local zone existing seen i vm
+
+  if [[ ${#VM_ZONES[@]} -gt 0 ]]; then
+    for zone in "${VM_ZONES[@]}"; do
+      [[ -z "${zone}" ]] && continue
+      seen=0
+      if [[ ${#zones[@]} -gt 0 ]]; then
+        for existing in "${zones[@]}"; do
+          if [[ "${existing}" == "${zone}" ]]; then
+            seen=1
+            break
+          fi
+        done
+      fi
+      [[ "${seen}" -eq 0 ]] && zones+=("${zone}")
+    done
+  fi
+
+  if [[ ${#zones[@]} -eq 0 ]]; then
+    return
+  fi
+  for zone in "${zones[@]}"; do
+    local -a batch=()
+    if [[ ${#VM_NAMES[@]} -gt 0 ]]; then
+      for i in "${!VM_NAMES[@]}"; do
+        [[ "${VM_ZONES[$i]}" == "${zone}" ]] || continue
+        vm="${VM_NAMES[$i]}"
+        [[ -z "${vm}" ]] && continue
+        if [[ "${verify_existing}" == "1" ]]; then
+          if gcloud compute instances describe "${vm}" --zone "${zone}" >/dev/null 2>&1; then
+            batch+=("${vm}")
+          fi
+        else
+          batch+=("${vm}")
+        fi
+      done
+    fi
+    if [[ ${#batch[@]} -gt 0 ]]; then
+      echo "  deleting ${batch[*]} (${zone})"
+      gcloud compute instances delete "${batch[@]}" --zone "${zone}" --quiet || true
+    fi
+  done
+}
+
 if [[ "${ALL_STALE}" -eq 1 ]]; then
   echo "Stage: list VMs with label experiment=${RUN_LABEL}"
   ENTRIES=()
@@ -112,12 +177,13 @@ if [[ "${ALL_STALE}" -eq 1 ]]; then
   if [[ ${#ENTRIES[@]} -eq 0 ]]; then
     echo "No VMs found with label experiment=${RUN_LABEL}."
   else
+    VM_NAMES=(); VM_ZONES=()
     for entry in "${ENTRIES[@]}"; do
-      name="${entry%%	*}"
-      zone="${entry##*	}"
-      echo "Stage: delete ${name} (${zone})"
-      gcloud compute instances delete "${name}" --zone "${zone}" --quiet || true
+      VM_NAMES+=("${entry%%	*}")
+      VM_ZONES+=("${entry##*	}")
     done
+    echo "Stage: delete stale VMs in zone batches"
+    delete_vms_by_zone 0
   fi
 else
   echo "Stage: delete VMs"
@@ -141,14 +207,9 @@ else
       VM_NAMES+=("${vm}"); VM_ZONES+=("${ZONE}")
     done
   fi
-  # Delete each VM individually so a single missing name doesn't abort the batch.
-  for i in "${!VM_NAMES[@]}"; do
-    vm="${VM_NAMES[$i]}"; z="${VM_ZONES[$i]}"
-    if gcloud compute instances describe "${vm}" --zone "${z}" >/dev/null 2>&1; then
-      echo "  deleting ${vm} (${z})"
-      gcloud compute instances delete "${vm}" --zone "${z}" --quiet || true
-    fi
-  done
+  # Batch deletions by zone. A cross-zone run still needs one delete request per
+  # zone, but same-zone stacks delete DB/attacker/noise with one gcloud call.
+  delete_vms_by_zone 1
 fi
 
 if [[ "${DELETE_NETWORK}" -eq 1 && "${ALL_STALE}" -eq 0 ]]; then

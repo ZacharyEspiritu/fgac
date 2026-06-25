@@ -3,6 +3,7 @@ from __future__ import annotations
 from argparse import Namespace
 from pathlib import Path
 
+from rls_artifact import results
 from rls_artifact.results import _resolve_manifest, run_results_command
 
 
@@ -12,32 +13,41 @@ def _make_project_root(path: Path) -> Path:
     return path
 
 
-def _write_manifest(root: Path, run_id: str) -> Path:
+def _write_cleanup_script(root: Path) -> Path:
+    script = root / "orchestration" / "provision" / "cleanup_vms.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    return script
+
+
+def _write_manifest(root: Path, run_id: str, *, machines: str | None = None) -> Path:
     manifest = root / "results" / "runs" / run_id / "manifest.yml"
     manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        "\n".join(
-            [
-                f"run_id: {run_id}",
-                "status: success",
-                "claims:",
-                "  - C-R6",
-                "runner: same-zone",
-                "command: bash orchestration/run_samezone_exps.sh --experiments 6",
-                "config: orchestration/config/shared_config.yml",
-                "started_at: '2026-01-01T00:00:00Z'",
-                "finished_at: '2026-01-01T01:00:00Z'",
-                "git_commit: abc123",
-                "git_dirty: false",
-                "outputs:",
-                "  - results/table3/review-run/table3.tex",
-                "published_outputs:",
-                "  - results/table3/table3.tex",
-                "notes: []",
-            ]
-        ),
-        encoding="utf-8",
+    lines = [
+        f"run_id: {run_id}",
+        "status: success",
+        "claims:",
+        "  - C-R6",
+        "runner: same-zone",
+        "command: bash orchestration/run_samezone_exps.sh --experiments 6",
+        "config: orchestration/config/shared_config.yml",
+        "started_at: '2026-01-01T00:00:00Z'",
+        "finished_at: '2026-01-01T01:00:00Z'",
+        "git_commit: abc123",
+        "git_dirty: false",
+    ]
+    if machines is not None:
+        lines.extend(["environment:", f"  MACHINES: {machines}"])
+    lines.extend(
+        [
+            "outputs:",
+            "  - results/table3/review-run/table3.tex",
+            "published_outputs:",
+            "  - results/table3/table3.tex",
+            "notes: []",
+        ]
     )
+    manifest.write_text("\n".join(lines), encoding="utf-8")
     return manifest
 
 
@@ -60,6 +70,10 @@ def test_results_command_lists_and_inspects_manifests(tmp_path, monkeypatch, cap
     assert "RLS Artifact Runs" in list_output
     assert "review-run" in list_output
     assert "success" in list_output
+    assert "Machines" in list_output
+    assert "C-R6" not in list_output
+    assert "unfilter-rls results inspect [RUN_ID]" in list_output
+    assert "results/runs/review-run/manifest.yml" not in list_output
 
     assert run_results_command(
         Namespace(results_command="inspect", path="results/table3/join-review-run", raw=False)
@@ -68,3 +82,109 @@ def test_results_command_lists_and_inspects_manifests(tmp_path, monkeypatch, cap
     assert "Run Summary" in inspect_output
     assert "review-run" in inspect_output
     assert "results/runs/review-run/manifest.yml" in inspect_output
+
+
+def test_results_list_helpers_shorten_claims_and_detect_machine_descriptors(
+    tmp_path,
+) -> None:
+    root = _make_project_root(tmp_path)
+    descriptor = root / "results" / "machines" / "review-run.yml"
+    descriptor.parent.mkdir(parents=True)
+    descriptor.write_text("transport: gcloud\n", encoding="utf-8")
+
+    assert results._format_claim_ids(["C-R6", "C-R7", "custom"]) == "6, 7, custom"
+    assert (
+        results._machine_descriptor_status(root, {}, "review-run").plain == "yes"
+    )
+    assert (
+        results._machine_descriptor_status(root, {}, "missing-run").plain == "no"
+    )
+
+
+def test_status_text_uses_scan_friendly_colors() -> None:
+    assert results._status_text("success").style == "bold green"
+    assert results._status_text("failed").style == "bold red"
+    assert results._status_text("running").style == "bold yellow"
+    assert results._status_text("unknown").style == "dim"
+
+
+def test_cleanup_vms_dry_run_prefers_manifest_machine_descriptor(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = _make_project_root(tmp_path)
+    _write_cleanup_script(root)
+    monkeypatch.chdir(root)
+    descriptor = root / "results" / "machines" / "custom.yml"
+    descriptor.parent.mkdir(parents=True)
+    descriptor.write_text("transport: gcloud\n", encoding="utf-8")
+    _write_manifest(root, "review-run", machines="results/machines/custom.yml")
+
+    assert run_results_command(
+        Namespace(
+            results_command="cleanup-vms",
+            run_id="review-run",
+            all_runs=False,
+            dry_run=True,
+        )
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert "cleanup" in output
+    assert "orchestration/provision/cleanup_vms.sh --machines results/machines/custom.yml" in output
+
+
+def test_cleanup_vms_dry_run_falls_back_to_manifest_config(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = _make_project_root(tmp_path)
+    _write_cleanup_script(root)
+    monkeypatch.chdir(root)
+    _write_manifest(root, "review-run")
+
+    assert run_results_command(
+        Namespace(
+            results_command="cleanup-vms",
+            run_id="review-run",
+            all_runs=False,
+            dry_run=True,
+        )
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert (
+        "orchestration/provision/cleanup_vms.sh --config orchestration/config/shared_config.yml "
+        "--run-id review-run"
+    ) in output
+
+
+def test_cleanup_vms_all_dry_run_cleans_only_local_descriptors(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = _make_project_root(tmp_path)
+    _write_cleanup_script(root)
+    monkeypatch.chdir(root)
+    machines = root / "results" / "machines"
+    machines.mkdir(parents=True)
+    (machines / "a.yml").write_text("transport: gcloud\n", encoding="utf-8")
+    (machines / "b.yml").write_text("transport: gcloud\n", encoding="utf-8")
+
+    assert run_results_command(
+        Namespace(
+            results_command="cleanup-vms",
+            run_id=None,
+            all_runs=True,
+            dry_run=True,
+        )
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert "Found 2 machine descriptor" in output
+    assert "cleanup_vms.sh --machines results/machines/a.yml" in output
+    assert "cleanup_vms.sh --machines results/machines/b.yml" in output
+    assert "--all-stale" not in output

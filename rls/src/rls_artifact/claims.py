@@ -31,6 +31,7 @@ from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from rls_artifact.paths import find_project_root
 
@@ -526,8 +527,8 @@ def _print_run_plan(
     dry_run: bool,
 ) -> None:
     rows = Table.grid(padding=(0, 1))
-    rows.add_column(style="bold")
-    rows.add_column()
+    rows.add_column(style="bold bright_cyan")
+    rows.add_column(style="white")
     rows.add_row("Claims", ", ".join(claim.claim_id for claim in claims))
     rows.add_row("Project", str(root))
     if len(commands) == 1:
@@ -556,14 +557,26 @@ def _print_run_plan(
     if modes:
         rows.add_row("Mode", ", ".join(modes))
 
-    Console(highlight=False).print(Panel(rows, title="Claim Run", box=box.ROUNDED))
+    Console(highlight=False).print(
+        Panel(
+            rows,
+            title=Text("Claim Run", style="bold bright_cyan"),
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+        )
+    )
 
     if len(commands) > 1:
-        command_table = Table(title="Command Sequence", box=box.ROUNDED)
-        command_table.add_column("#", justify="right", no_wrap=True)
-        command_table.add_column("Claims", no_wrap=True)
-        command_table.add_column("Command", overflow="fold")
-        command_table.add_column("RUN_ID", no_wrap=True)
+        command_table = Table(
+            title=Text("Command Sequence", style="bold bright_magenta"),
+            box=box.ROUNDED,
+            border_style="bright_magenta",
+            header_style="bold bright_cyan",
+        )
+        command_table.add_column("#", justify="right", no_wrap=True, style="bold bright_cyan")
+        command_table.add_column("Claims", no_wrap=True, style="bold white")
+        command_table.add_column("Command", overflow="fold", style="white")
+        command_table.add_column("RUN_ID", no_wrap=True, style="bright_green")
         for idx, command in enumerate(commands, start=1):
             command_table.add_row(
                 str(idx),
